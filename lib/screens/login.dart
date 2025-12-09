@@ -5,8 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'admin_home.dart';
 
-final String baseUrl =
-    "https://f5vfl9mt-3000.inc1.devtunnels.ms"; // Backend URL
+final String baseUrl = "https://leads.efficient-works.com"; // Backend URL
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -59,9 +58,9 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    bool passValid = RegExp(r'^[0-9]{6}$').hasMatch(password.text);
+    bool passValid = RegExp(r'^[0-9]{10}$').hasMatch(password.text);
     if (!passValid) {
-      _showError("Password must be a 6-digit numeric code");
+      _showError("Password must be a 10-digit numeric code");
       return;
     }
 
@@ -88,7 +87,11 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => HomePage(email: user['email'], userId: user['id']),
+          builder: (_) => HomePage(
+            email: user['email'],
+            userId: user['id'],
+            username: user['username'],
+          ),
         ),
       );
     }
@@ -134,6 +137,7 @@ class _LoginPageState extends State<LoginPage> {
             left: -40,
             child: _blob(250, Colors.blueAccent),
           ),
+
           /// Glass Login Box
           Center(
             child: Padding(
@@ -176,7 +180,7 @@ class _LoginPageState extends State<LoginPage> {
 
                         _glassTextField(
                           controller: password,
-                          hint: "6-digit Code",
+                          hint: "Phone Passcode",
                           icon: Icons.lock,
                           obscure: !_showPassword,
                           keyboardType: TextInputType.number,
@@ -257,7 +261,7 @@ class _LoginPageState extends State<LoginPage> {
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
-        maxLength: keyboardType == TextInputType.number ? 6 : null,
+        maxLength: keyboardType == TextInputType.number ? 10 : null,
         style: const TextStyle(
           color: Colors.black,
           fontWeight: FontWeight.w600,

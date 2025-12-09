@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
+final String baseUrl = "https://leads.efficient-works.com";
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key, required this.email, required this.userId});
@@ -19,11 +19,24 @@ class _AdminHomePageState extends State<AdminHomePage> {
   List<dynamic> users = [];
   List<dynamic> filteredUsers = [];
   String searchQuery = "";
+  final String phone = "";
 
   @override
   void initState() {
     super.initState();
     loadUsers();
+  }
+
+  void callUser(String phone) async {
+    final Uri url = Uri(scheme: 'tel', path: phone);
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Cannot call $phone")));
+    }
   }
 
   Future<void> loadUsers() async {
@@ -173,56 +186,109 @@ class _AdminHomePageState extends State<AdminHomePage> {
           Expanded(
             child: filteredUsers.isEmpty
                 ? const Center(child: Text("No users found"))
-                : SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(
-                          Colors.deepPurple.shade100,
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filteredUsers.length,
+                    itemBuilder: (context, index) {
+                      final u = filteredUsers[index];
+                      final int userId = u["id"];
+                      final String email = u["email"];
+                      final String username = u["full_name"] ?? "Unknown";
+                      final String phone = u["phone_number"] ?? "";
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple.shade800.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.deepPurple.shade200,
+                            width: 2,
+                          ),
                         ),
-                        columns: const [
-                          DataColumn(label: Text("Email")),
-                          DataColumn(label: Text("Live Location")),
-                          DataColumn(label: Text("Travel History")),
-                        ],
-                        rows: filteredUsers.map<DataRow>((u) {
-                          final int userId = u["id"];
-                          final String email = u["email"];
 
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(email)),
-
-                              /// LIVE LOCATION BUTTON
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.location_on,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () => openLiveLocation(userId),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // USER NAME BOX
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
                                 ),
                               ),
-
-                              /// TRAVEL HISTORY BUTTON
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.timeline,
-                                    color: Colors.blue,
-                                  ),
-                                  onPressed: () => openTravelHistory(userId),
+                              child: Text(
+                                username,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // 3 ROUND BUTTONS
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                // CALL BUTTON
+                                _circleButton(
+                                  icon: Icons.call,
+                                  color: Colors.green,
+                                  onTap: () => callUser(phone),
+                                ),
+
+                                // LIVE LOCATION BUTTON
+                                _circleButton(
+                                  icon: Icons.location_on,
+                                  color: Colors.red,
+                                  onTap: () => openLiveLocation(userId),
+                                ),
+
+                                // TRAVEL HISTORY BUTTON
+                                _circleButton(
+                                  icon: Icons.timeline,
+                                  color: Colors.blue,
+                                  onTap: () => openTravelHistory(userId),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _circleButton({
+    required IconData icon,
+    required Color color,
+    required Function() onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          color: Colors.black,
+        ),
+        child: Icon(icon, color: color, size: 30),
       ),
     );
   }

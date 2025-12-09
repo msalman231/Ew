@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/location_service.dart';
-
 import '../services/restaurant_service.dart';
 
 class RestaurantFormPage extends StatefulWidget {
@@ -17,6 +16,25 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   final phoneCtrl = TextEditingController();
   final contactCtrl = TextEditingController();
 
+  // Conversion fields
+  final emailCtrl = TextEditingController();
+  final costCtrl = TextEditingController();
+  final discountCtrl = TextEditingController();
+  final balanceCtrl = TextEditingController();
+  final commentCtrl = TextEditingController();
+
+  String? selectedProduct;
+  String? selectedPaymentMethod;
+  List<String> selectedPos = [];
+
+  final List<String> products = ["Retail Pos", "Restaurant Pos"];
+  final List<String> posOptions = ["Mobile Pos", "Web Pos", "Waiter App"];
+  final List<String> paymentOptions = ["Card", "Cash", "Online-UPI"];
+
+  // Closed field
+  final reasonCtrl = TextEditingController();
+
+  // Others
   String? restaurantType;
   String? manualAddress;
   bool useManualAddress = false;
@@ -39,51 +57,37 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: "Restaurant Name",
-                border: OutlineInputBorder(),
-              ),
+            _textField(nameCtrl, "Restaurant Name"),
+            const SizedBox(height: 12),
+
+            _textField(
+              phoneCtrl,
+              "Phone Number",
+              keyboard: TextInputType.number,
+              maxLen: 10,
             ),
             const SizedBox(height: 12),
 
-            /// Phone (Integer keyboard)
-            TextField(
-              controller: phoneCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 10,
-              decoration: const InputDecoration(
-                labelText: "Phone Number",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            /// Contact (Integer keyboard)
-            TextField(
-              controller: contactCtrl,
-              decoration: const InputDecoration(
-                labelText: "Contact Person Name",
-                border: OutlineInputBorder(),
-              ),
-            ),
+            _textField(contactCtrl, "Contact Person Name"),
             const SizedBox(height: 20),
 
-            /// RESTAURANT TYPE DROPDOWN
+            /// STATUS DROPDOWN
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                 labelText: "Status",
                 border: OutlineInputBorder(),
               ),
               value: restaurantType,
-              items: restaurantTypes.map((type) {
-                return DropdownMenuItem(value: type, child: Text(type));
-              }).toList(),
+              items: restaurantTypes
+                  .map(
+                    (type) => DropdownMenuItem(value: type, child: Text(type)),
+                  )
+                  .toList(),
               onChanged: (value) => setState(() => restaurantType = value),
             ),
 
             const SizedBox(height: 20),
+
             TextButton(
               onPressed: () {
                 showDialog(
@@ -101,62 +105,220 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
               child: const Text("Add Address Manually"),
             ),
 
+            const SizedBox(height: 20),
+
+            /// 🔥 SHOW CONVERSION FIELDS
+            if (restaurantType == "Conversion") _buildConversionForm(),
+
+            /// 🔥 SHOW CLOSED REASON FIELD
+            if (restaurantType == "Closed") _buildClosedReason(),
+
+            const SizedBox(height: 20),
+
             ElevatedButton(
-              onPressed: () async {
-                // ⭐ VALIDATION
-                if (nameCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Restaurant Name is required"),
-                    ),
-                  );
-                  return;
-                }
-
-                if (phoneCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Phone Number is required")),
-                  );
-                  return;
-                }
-
-                if (restaurantType == null || restaurantType!.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please select a Status")),
-                  );
-                  return;
-                }
-
-                late String addressToSend;
-
-                if (useManualAddress) {
-                  addressToSend = manualAddress ?? "";
-                } else {
-                  final loc = await LocationService.getLocationDetails();
-                  addressToSend = loc["address"] ?? "";
-                }
-
-                final loc = await LocationService.getLocationDetails();
-
-                bool ok = await RestaurantService.addRestaurant(
-                  widget.userId,
-                  nameCtrl.text,
-                  restaurantType ?? "",
-                  phoneCtrl.text,
-                  contactCtrl.text,
-                  addressToSend,
-                  (loc["latitude"] ?? "").toString(),
-                  (loc["longitude"] ?? "").toString(),
-                );
-
-                Navigator.pop(context, ok);
-              },
+              onPressed: _saveRestaurant,
               child: const Text("Save"),
             ),
           ],
         ),
       ),
     );
+  }
+
+  // =============================================================
+  // SAVE FUNCTION
+  // =============================================================
+  Future<void> _saveRestaurant() async {
+    if (nameCtrl.text.trim().isEmpty) {
+      return _toast("Restaurant Name is required");
+    }
+    if (phoneCtrl.text.trim().isEmpty) {
+      return _toast("Phone Number is required");
+    }
+    if (restaurantType == null) {
+      return _toast("Please select a Status");
+    }
+
+    // Get address
+    final loc = await LocationService.getLocationDetails();
+    final addressToSend = useManualAddress ? manualAddress! : loc["address"];
+
+    bool ok = await RestaurantService.addRestaurant(
+      widget.userId,
+      nameCtrl.text,
+      restaurantType ?? "",
+      phoneCtrl.text,
+      contactCtrl.text,
+      addressToSend ?? "",
+      loc["latitude"].toString(),
+      loc["longitude"].toString(),
+
+      emailCtrl.text,
+      selectedProduct ?? "",
+      selectedPos.join(","),
+
+      costCtrl.text,
+      discountCtrl.text,
+      balanceCtrl.text,
+      selectedPaymentMethod,
+      commentCtrl.text,
+      reasonCtrl.text,
+    );
+
+    Navigator.pop(context, ok);
+  }
+
+  // =============================================================
+  // UI COMPONENTS
+  // =============================================================
+
+  Widget _textField(
+    TextEditingController ctrl,
+    String label, {
+    TextInputType keyboard = TextInputType.text,
+    int? maxLen,
+  }) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: keyboard,
+      maxLength: maxLen,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Widget _buildConversionForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const Text(
+          "Conversion Form",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+
+        // Email
+        _textField(emailCtrl, "E-Mail"),
+        const SizedBox(height: 12),
+
+        // PRODUCT SELECT
+        DropdownButtonFormField(
+          decoration: const InputDecoration(
+            labelText: "Product Select",
+            border: OutlineInputBorder(),
+          ),
+          value: selectedProduct,
+          items: products
+              .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              selectedProduct = v;
+              selectedPos.clear(); // Reset POS when product changes
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+
+        // ⭐ SHOW POS OPTIONS ONLY IF "Restaurant Pos" SELECTED
+        if (selectedProduct == "Restaurant Pos") ...[
+          const Text(
+            "Select POS Options:",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+
+          Column(
+            children: posOptions.map((pos) {
+              return CheckboxListTile(
+                title: Text(pos),
+                value: selectedPos.contains(pos),
+                onChanged: (checked) {
+                  setState(() {
+                    if (checked == true) {
+                      selectedPos.add(pos);
+                    } else {
+                      selectedPos.remove(pos);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // PAYMENT METHOD DROPDOWN
+        DropdownButtonFormField(
+          decoration: const InputDecoration(
+            labelText: "Payment Method",
+            border: OutlineInputBorder(),
+          ),
+          value: selectedPaymentMethod,
+          items: paymentOptions
+              .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+              .toList(),
+          onChanged: (v) => setState(() => selectedPaymentMethod = v),
+        ),
+        const SizedBox(height: 12),
+
+        // COST
+        _textField(costCtrl, "Cost", keyboard: TextInputType.number),
+        const SizedBox(height: 12),
+
+        // DISCOUNT
+        _textField(discountCtrl, "Discount %", keyboard: TextInputType.number),
+        const SizedBox(height: 12),
+
+        // BALANCE
+        _textField(
+          balanceCtrl,
+          "Balance to Pay",
+          keyboard: TextInputType.number,
+        ),
+        const SizedBox(height: 12),
+
+        // COMMENT FIELD
+        TextField(
+          controller: commentCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: "Comment",
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClosedReason() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const Text(
+          "Closed Reason",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+
+        TextField(
+          controller: reasonCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: "Reason",
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
 
@@ -173,6 +335,7 @@ class _ManualAddressPopupState extends State<ManualAddressPopup> {
   final addressCtrl = TextEditingController();
   final areaCtrl = TextEditingController();
   final cityCtrl = TextEditingController();
+  final commentCtrl = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +368,6 @@ class _ManualAddressPopupState extends State<ManualAddressPopup> {
             final fullAddress =
                 "${addressCtrl.text}, ${areaCtrl.text}, ${cityCtrl.text}"
                     .trim();
-
             widget.onSave(fullAddress);
             Navigator.pop(context);
           },

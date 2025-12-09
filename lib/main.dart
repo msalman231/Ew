@@ -23,7 +23,11 @@ class MyApp extends StatelessWidget {
               ModalRoute.of(context)!.settings.arguments
                   as Map<String, dynamic>;
 
-          return HomePage(email: args["email"], userId: args["userId"]);
+          return HomePage(
+            email: args["email"],
+            userId: args["userId"],
+            username: args["username"],
+          );
         },
       },
 

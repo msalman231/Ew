@@ -12,13 +12,19 @@ import '../services/restaurant_service.dart';
 import 'restaurant_edit.dart';
 import 'drawer_menu.dart';
 
-final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
+final String baseUrl = "https://leads.efficient-works.com";
 
 class HomePage extends StatefulWidget {
   final String email;
   final int userId;
+  final String username;
 
-  const HomePage({super.key, required this.email, required this.userId});
+  const HomePage({
+    super.key,
+    required this.email,
+    required this.userId,
+    required this.username,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -238,6 +244,7 @@ class _HomePageState extends State<HomePage> {
       drawer: DrawerMenu(
         userId: widget.userId,
         email: widget.email,
+        username: widget.username,
         onVisitCompleted: () => loadRestaurants(),
       ),
 

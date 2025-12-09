@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../services/location_service.dart';
+// import '../services/location_service.dart';
 
-final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
+final String baseUrl = "https://leads.efficient-works.com";
 
 class RestaurantService {
   static Future<List<dynamic>> getRestaurants() async {
@@ -19,12 +19,21 @@ class RestaurantService {
     String location,
     String latitude,
     String longitude,
+    String? email,
+    String? product,
+    String? posMulti,
+    String? cost,
+    String? discount,
+    String? balance,
+    String? paymentMethod,
+    String? comment,
+    String? closedReason,
   ) async {
     final res = await http.post(
       Uri.parse("$baseUrl/restaurants"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
-        "user_id": userId, // ⭐ send current user ID
+        "user_id": userId,
         "name": name,
         "res_type": resType,
         "phone": phone,
@@ -32,6 +41,16 @@ class RestaurantService {
         "location": location,
         "latitude": latitude,
         "longitude": longitude,
+
+        "email": email,
+        "product": product,
+        "pos_multi": posMulti,
+        "cost": cost,
+        "discount": discount,
+        "balance": balance, // ✔ correct position
+        "payment_method": paymentMethod, // ✔ correct position
+        "comment": comment,
+        "closed_reason": closedReason,
       }),
     );
 
