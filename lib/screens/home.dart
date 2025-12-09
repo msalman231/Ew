@@ -8,7 +8,8 @@ import 'package:geocoding/geocoding.dart';
 
 import '../services/location_service.dart';
 import '../services/restaurant_service.dart';
-import 'restaurant_form_page.dart';
+// import 'restaurant_form_page.dart';
+import 'restaurant_edit.dart';
 import 'drawer_menu.dart';
 
 final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
@@ -43,10 +44,12 @@ class _HomePageState extends State<HomePage> {
 
   final List<String> typeFilters = [
     "All",
-    "leads",
-    "follows",
-    "future follows",
-    "conversion",
+    "Leads",
+    "Follows",
+    "Future Follows",
+    "Closed",
+    "Installation",
+    "Conversion",
   ];
 
   @override
@@ -64,7 +67,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadRestaurants() async {
-    final list = await RestaurantService.getRestaurants();
+    final list = await RestaurantService.getRestaurantsByUser(widget.userId);
+
     print("API RESTAURANT DATA → $list"); // ADD THIS
     setState(() {
       allRestaurants = list;
@@ -231,7 +235,12 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: DrawerMenu(email: widget.email),
+      drawer: DrawerMenu(
+        userId: widget.userId,
+        email: widget.email,
+        onVisitCompleted: () => loadRestaurants(),
+      ),
+
       appBar: AppBar(
         title: const Text("Home", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.deepPurple,
@@ -242,18 +251,6 @@ class _HomePageState extends State<HomePage> {
             color: Colors.white,
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white, // <-- correct
-        onPressed: () async {
-          bool? saved = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => RestaurantFormPage()),
-          );
-          if (saved == true) loadRestaurants();
-        },
-        child: const Icon(Icons.add),
       ),
 
       body: SafeArea(
@@ -296,98 +293,136 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: filteredRestaurants.isEmpty
                   ? const Center(child: Text("No restaurants found"))
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(
-                          Colors.deepPurple.shade100,
-                        ),
-                        columnSpacing: 16,
-                        columns: const [
-                          DataColumn(label: Text("Name")),
-                          DataColumn(label: Text("Contact")),
-                          DataColumn(label: Text("Call")),
-                          DataColumn(label: Text("Directions")),
-                        ],
-                        rows: filteredRestaurants.map<DataRow>((r) {
-                          final String name = r["name"] ?? "-";
-                          final String contact = r["contact"] ?? "-";
-                          final double? lat = r["latitude"] != null
-                              ? double.tryParse(r["latitude"].toString())
-                              : null;
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: filteredRestaurants.length,
+                      itemBuilder: (context, index) {
+                        final r = filteredRestaurants[index];
 
-                          final double? lng = r["longitude"] != null
-                              ? double.tryParse(r["longitude"].toString())
-                              : null;
+                        final String name = r["name"] ?? "-";
+                        final String contact = r["contact"] ?? "-";
+                        final String phone = r["phone"] ?? "-";
+                        final String location = r["location"] ?? "-";
 
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(name)),
-                              DataCell(Text(contact)),
+                        final double? lat = r["latitude"] != null
+                            ? double.tryParse(r["latitude"].toString())
+                            : null;
 
-                              /// CALL BUTTON
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.call,
-                                    color: Colors.green,
+                        final double? lng = r["longitude"] != null
+                            ? double.tryParse(r["longitude"].toString())
+                            : null;
+
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ----------------------
+                                // TITLE (Restaurant Name)
+                                // ----------------------
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  onPressed: contact.isNotEmpty
-                                      ? () =>
-                                            launchUrl(Uri.parse("tel:$contact"))
-                                      : null,
                                 ),
-                              ),
 
-                              /// OPEN GOOGLE MAPS
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.directions,
-                                    color: Colors.blue,
+                                const SizedBox(height: 8),
+
+                                // ----------------------
+                                // DETAILS SECTION
+                                // ----------------------
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  onPressed: () async {
-                                    final double? lat = r["latitude"] != null
-                                        ? double.tryParse(
-                                            r["latitude"].toString(),
-                                          )
-                                        : null;
-                                    final double? lng = r["longitude"] != null
-                                        ? double.tryParse(
-                                            r["longitude"].toString(),
-                                          )
-                                        : null;
-
-                                    if (lat == null || lng == null) {
-                                      debugPrint(
-                                        "❌ No location stored for this restaurant",
-                                      );
-                                      return;
-                                    }
-
-                                    final Uri mapUrl = Uri.parse(
-                                      "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
-                                    );
-
-                                    final bool launched = await launchUrl(
-                                      mapUrl,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-
-                                    if (!launched) {
-                                      debugPrint(
-                                        "❌ Could NOT launch Google Maps → $mapUrl",
-                                      );
-                                    } else {
-                                      debugPrint("✅ Google Maps launched");
-                                    }
-                                  },
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text("Address: $location"),
+                                      Text("Contact Person: $contact"),
+                                      Text("Phone: $phone"),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
+
+                                const SizedBox(height: 8),
+
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    // ----------------------
+                                    // CALL BUTTON
+                                    // ----------------------
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.call,
+                                        color: Colors.green,
+                                      ),
+                                      onPressed: phone.isNotEmpty
+                                          ? () => launchUrl(
+                                              Uri.parse("tel:$phone"),
+                                            )
+                                          : null,
+                                    ),
+
+                                    // ----------------------
+                                    // DIRECTIONS BUTTON
+                                    // ----------------------
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.directions,
+                                        color: Colors.blue,
+                                      ),
+                                      onPressed: () async {
+                                        if (lat == null || lng == null) return;
+
+                                        final Uri mapUrl = Uri.parse(
+                                          "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
+                                        );
+
+                                        await launchUrl(
+                                          mapUrl,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                    ),
+
+                                    // ----------------------
+                                    // EDIT BUTTON
+                                    // ----------------------
+                                    TextButton(
+                                      onPressed: () async {
+                                        bool? updated = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => RestaurantEditPage(
+                                              restaurant: r,
+                                            ),
+                                          ),
+                                        );
+
+                                        if (updated == true) loadRestaurants();
+                                      },
+                                      child: const Text("Edit"),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],

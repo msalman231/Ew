@@ -11,36 +11,71 @@ class RestaurantService {
   }
 
   static Future<bool> addRestaurant(
+    int userId,
     String name,
     String resType,
     String phone,
     String contact,
+    String location,
+    String latitude,
+    String longitude,
+  ) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/restaurants"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "user_id": userId, // ⭐ send current user ID
+        "name": name,
+        "res_type": resType,
+        "phone": phone,
+        "contact": contact,
+        "location": location,
+        "latitude": latitude,
+        "longitude": longitude,
+      }),
+    );
+
+    return res.statusCode == 201;
+  }
+
+  // restaurant_service.dart
+
+  static Future<bool> updateRestaurant(
+    int id,
+    String name,
+    String resType,
+    String phone,
+    String contact,
+    String location,
+    String latitude,
+    String longitude,
   ) async {
     try {
-      final loc = await LocationService.getLocationDetails();
-
-      final res = await http.post(
-        Uri.parse("$baseUrl/restaurants"),
+      final res = await http.put(
+        Uri.parse("$baseUrl/restaurants/$id"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "name": name,
           "res_type": resType,
           "phone": phone,
           "contact": contact,
-          "location": loc["address"],
-          "latitude": loc["latitude"],
-          "longitude": loc["longitude"],
+          "location": location,
+          "latitude": latitude,
+          "longitude": longitude,
         }),
       );
 
-      return res.statusCode == 201;
+      return res.statusCode == 200;
     } catch (e) {
-      print("ERROR → addRestaurant(): $e");
+      print("ERROR → updateRestaurant(): $e");
       return false;
     }
   }
 
-  // restaurant_service.dart
+  static Future<List<dynamic>> getRestaurantsByUser(int userId) async {
+    final res = await http.get(Uri.parse("$baseUrl/restaurants/$userId"));
+    return res.statusCode == 200 ? jsonDecode(res.body) : [];
+  }
 
   static Future<void> trackLocation({
     required int userId,
