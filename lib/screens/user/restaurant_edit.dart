@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/restaurant_service.dart';
-import '../services/location_service.dart';
+import '../../services/restaurant_service.dart';
+import '../../services/location_service.dart';
 
 class RestaurantEditPage extends StatefulWidget {
   final Map<String, dynamic> restaurant;

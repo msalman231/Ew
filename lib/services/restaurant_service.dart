@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 // import '../services/location_service.dart';
 
-final String baseUrl = "https://leads.efficient-works.com";
+final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
 
 class RestaurantService {
   static Future<List<dynamic>> getRestaurants() async {

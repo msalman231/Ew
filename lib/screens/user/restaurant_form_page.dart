@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/location_service.dart';
-import '../services/restaurant_service.dart';
+import '../../services/location_service.dart';
+import '../../services/restaurant_service.dart';
 
 class RestaurantFormPage extends StatefulWidget {
   final int userId;

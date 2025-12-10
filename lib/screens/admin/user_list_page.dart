@@ -2,41 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'add_user_page.dart';
 
-final String baseUrl = "https://leads.efficient-works.com";
+final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
 
-class AdminHomePage extends StatefulWidget {
-  const AdminHomePage({super.key, required this.email, required this.userId});
-
-  final String email;
-  final int userId;
+class UserListPage extends StatefulWidget {
+  const UserListPage({super.key});
 
   @override
-  State<AdminHomePage> createState() => _AdminHomePageState();
+  State<UserListPage> createState() => _UserListPageState();
 }
 
-class _AdminHomePageState extends State<AdminHomePage> {
+class _UserListPageState extends State<UserListPage> {
   List<dynamic> users = [];
   List<dynamic> filteredUsers = [];
   String searchQuery = "";
-  final String phone = "";
 
   @override
   void initState() {
     super.initState();
     loadUsers();
-  }
-
-  void callUser(String phone) async {
-    final Uri url = Uri(scheme: 'tel', path: phone);
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Cannot call $phone")));
-    }
   }
 
   Future<void> loadUsers() async {
@@ -60,7 +45,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
     });
   }
 
-  /// Fetch latest live location
+  Future<void> callUser(String phone) async {
+    final Uri url = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    }
+  }
+
   Future<Map<String, dynamic>?> getLatestLocation(int userId) async {
     final res = await http.get(
       Uri.parse("$baseUrl/user-locations/latest/$userId"),
@@ -69,7 +60,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
     return null;
   }
 
-  /// Fetch full travel path (all stored locations)
   Future<List<dynamic>> getTravelHistory(int userId) async {
     final res = await http.get(
       Uri.parse("$baseUrl/user-locations/history/$userId"),
@@ -78,13 +68,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
     return [];
   }
 
-  /// Open Google Maps for LIVE location
   Future<void> openLiveLocation(int userId) async {
     final loc = await getLatestLocation(userId);
-    if (loc == null) {
-      debugPrint("❌ No live location available");
-      return;
-    }
+    if (loc == null) return;
 
     final lat = loc["latitude"];
     final lng = loc["longitude"];
@@ -96,15 +82,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  /// Open Google Maps with Travel Path Polyline
   Future<void> openTravelHistory(int userId) async {
     final history = await getTravelHistory(userId);
-    if (history.isEmpty) {
-      debugPrint("❌ No travel history available");
-      return;
-    }
+    if (history.isEmpty) return;
 
-    // Format polyline path: lat1,lng1/lat2,lng2/...
     final path = history
         .map((p) => "${p['latitude']},${p['longitude']}")
         .join("/");
@@ -114,52 +95,27 @@ class _AdminHomePageState extends State<AdminHomePage> {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> logout() async {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to logout?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                "/login",
-                (_) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Logout"),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Admin Home", style: TextStyle(color: Colors.white)),
+        title: const Text("Users List", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.deepPurple,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: logout,
-            color: Colors.white,
-          ),
-        ],
       ),
+
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.deepPurple,
+        child: const Icon(Icons.add, size: 32, color: Colors.white),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddUserPage()),
+          );
+        },
+      ),
+
       body: Column(
         children: [
-          // Search bar
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -171,18 +127,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
             ),
           ),
 
-          // Table header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            color: Colors.black12,
-            child: const Text(
-              "Users List",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-
-          // Users Table
           Expanded(
             child: filteredUsers.isEmpty
                 ? const Center(child: Text("No users found"))
@@ -192,7 +136,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     itemBuilder: (context, index) {
                       final u = filteredUsers[index];
                       final int userId = u["id"];
-                      final String email = u["email"];
                       final String username = u["full_name"] ?? "Unknown";
                       final String phone = u["phone_number"] ?? "";
 
@@ -211,7 +154,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // USER NAME BOX
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 vertical: 10,
@@ -236,25 +178,21 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
                             const SizedBox(height: 16),
 
-                            // 3 ROUND BUTTONS
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                // CALL BUTTON
                                 _circleButton(
                                   icon: Icons.call,
                                   color: Colors.green,
                                   onTap: () => callUser(phone),
                                 ),
 
-                                // LIVE LOCATION BUTTON
                                 _circleButton(
                                   icon: Icons.location_on,
                                   color: Colors.red,
                                   onTap: () => openLiveLocation(userId),
                                 ),
 
-                                // TRAVEL HISTORY BUTTON
                                 _circleButton(
                                   icon: Icons.timeline,
                                   color: Colors.blue,
