@@ -3,8 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'add_user_page.dart';
-
-final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
+import 'package:efficient_works/config/constants.dart';
 
 class UserListPage extends StatefulWidget {
   const UserListPage({super.key});
@@ -25,7 +24,7 @@ class _UserListPageState extends State<UserListPage> {
   }
 
   Future<void> loadUsers() async {
-    final res = await http.get(Uri.parse("$baseUrl/users"));
+    final res = await http.get(Uri.parse("${AppConfig.baseUrl}/users"));
     if (res.statusCode == 200) {
       final list = jsonDecode(res.body);
       setState(() {
@@ -54,7 +53,7 @@ class _UserListPageState extends State<UserListPage> {
 
   Future<Map<String, dynamic>?> getLatestLocation(int userId) async {
     final res = await http.get(
-      Uri.parse("$baseUrl/user-locations/latest/$userId"),
+      Uri.parse("${AppConfig.baseUrl}/user-locations/latest/$userId"),
     );
     if (res.statusCode == 200) return jsonDecode(res.body);
     return null;
@@ -62,7 +61,7 @@ class _UserListPageState extends State<UserListPage> {
 
   Future<List<dynamic>> getTravelHistory(int userId) async {
     final res = await http.get(
-      Uri.parse("$baseUrl/user-locations/history/$userId"),
+      Uri.parse("${AppConfig.baseUrl}/user-locations/history/$userId"),
     );
     if (res.statusCode == 200) return jsonDecode(res.body);
     return [];

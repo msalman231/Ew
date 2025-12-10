@@ -4,8 +4,15 @@ import '../../services/restaurant_service.dart';
 
 class RestaurantFormPage extends StatefulWidget {
   final int userId;
+  final String email;
+  final String username;
 
-  const RestaurantFormPage({super.key, required this.userId});
+  const RestaurantFormPage({
+    super.key,
+    required this.userId,
+    required this.email,
+    required this.username,
+  });
 
   @override
   State<RestaurantFormPage> createState() => _RestaurantFormPageState();
@@ -38,6 +45,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   String? restaurantType;
   String? manualAddress;
   bool useManualAddress = false;
+  bool isLoading = false;
 
   final List<String> restaurantTypes = [
     "Leads",
@@ -51,44 +59,78 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add Restaurant")),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              "/home",
+              (route) => false,
+              arguments: {
+                "email": widget.email,
+                "userId": widget.userId,
+                "username": widget.username,
+              },
+            );
+          },
+        ),
+        title: const Text(
+          "Add Restaurant",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.deepPurple,
+      ),
+
+      backgroundColor: Colors.grey.shade100,
+
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _textField(nameCtrl, "Restaurant Name"),
-            const SizedBox(height: 12),
+            _sectionTitle("Basic Information"),
 
-            _textField(
-              phoneCtrl,
-              "Phone Number",
-              keyboard: TextInputType.number,
-              maxLen: 10,
-            ),
-            const SizedBox(height: 12),
-
-            _textField(contactCtrl, "Contact Person Name"),
-            const SizedBox(height: 20),
-
-            /// STATUS DROPDOWN
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: "Status",
-                border: OutlineInputBorder(),
-              ),
-              value: restaurantType,
-              items: restaurantTypes
-                  .map(
-                    (type) => DropdownMenuItem(value: type, child: Text(type)),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => restaurantType = value),
+            _card(
+              children: [
+                _textField(nameCtrl, "Restaurant Name"),
+                const SizedBox(height: 12),
+                _textField(
+                  phoneCtrl,
+                  "Phone Number",
+                  keyboard: TextInputType.number,
+                  maxLen: 10,
+                ),
+                const SizedBox(height: 12),
+                _textField(contactCtrl, "Contact Person Name"),
+              ],
             ),
 
             const SizedBox(height: 20),
 
-            TextButton(
+            _sectionTitle("Status"),
+
+            _card(
+              children: [
+                DropdownButtonFormField<String>(
+                  decoration: _dropdownStyle("Status"),
+                  value: restaurantType,
+                  items: restaurantTypes
+                      .map(
+                        (type) =>
+                            DropdownMenuItem(value: type, child: Text(type)),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => restaurantType = value),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            TextButton.icon(
+              icon: const Icon(Icons.location_on_outlined),
+              label: const Text("Add Address Manually"),
               onPressed: () {
                 showDialog(
                   context: context,
@@ -102,22 +144,76 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                   ),
                 );
               },
-              child: const Text("Add Address Manually"),
             ),
 
+            if (useManualAddress && manualAddress != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  "Address: $manualAddress",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
             const SizedBox(height: 20),
 
-            /// 🔥 SHOW CONVERSION FIELDS
+            /// CONDITIONAL SECTIONS
             if (restaurantType == "Conversion") _buildConversionForm(),
-
-            /// 🔥 SHOW CLOSED REASON FIELD
             if (restaurantType == "Closed") _buildClosedReason(),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
 
-            ElevatedButton(
-              onPressed: _saveRestaurant,
-              child: const Text("Save"),
+            Center(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setState(() => isLoading = true);
+
+                          bool ok = await _saveRestaurant();
+
+                          setState(() => isLoading = false);
+
+                          if (ok == true) {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              "/home",
+                              (route) => false,
+                              arguments: {
+                                "email": widget.email,
+                                "userId": widget.userId,
+                                "username": widget.username,
+                              },
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Save",
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                ),
+              ),
             ),
           ],
         ),
@@ -128,18 +224,20 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   // =============================================================
   // SAVE FUNCTION
   // =============================================================
-  Future<void> _saveRestaurant() async {
+  Future<bool> _saveRestaurant() async {
     if (nameCtrl.text.trim().isEmpty) {
-      return _toast("Restaurant Name is required");
+      _toast("Restaurant Name is required");
+      return false;
     }
     if (phoneCtrl.text.trim().isEmpty) {
-      return _toast("Phone Number is required");
+      _toast("Phone Number is required");
+      return false;
     }
     if (restaurantType == null) {
-      return _toast("Please select a Status");
+      _toast("Please select a Status");
+      return false;
     }
 
-    // Get address
     final loc = await LocationService.getLocationDetails();
     final addressToSend = useManualAddress ? manualAddress! : loc["address"];
 
@@ -152,25 +250,62 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       addressToSend ?? "",
       loc["latitude"].toString(),
       loc["longitude"].toString(),
-
       emailCtrl.text,
       selectedProduct ?? "",
       selectedPos.join(","),
-
       costCtrl.text,
-      discountCtrl.text,
+      (discountCtrl.text.isNotEmpty
+          ? (double.parse(discountCtrl.text) / 100).toString()
+          : ""),
       balanceCtrl.text,
       selectedPaymentMethod,
       commentCtrl.text,
       reasonCtrl.text,
     );
 
-    Navigator.pop(context, ok);
+    return ok;
   }
 
   // =============================================================
   // UI COMPONENTS
   // =============================================================
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _card({required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
 
   Widget _textField(
     TextEditingController ctrl,
@@ -184,8 +319,19 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       maxLength: maxLen,
       decoration: InputDecoration(
         labelText: label,
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.grey.shade100,
       ),
+    );
+  }
+
+  InputDecoration _dropdownStyle(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      filled: true,
+      fillColor: Colors.grey.shade100,
     );
   }
 
@@ -193,102 +339,92 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(),
-        const Text(
-          "Conversion Form",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
+        _sectionTitle("Conversion Details"),
 
-        // Email
-        _textField(emailCtrl, "E-Mail"),
-        const SizedBox(height: 12),
+        _card(
+          children: [
+            _textField(emailCtrl, "Customer Email"),
+            const SizedBox(height: 12),
 
-        // PRODUCT SELECT
-        DropdownButtonFormField(
-          decoration: const InputDecoration(
-            labelText: "Product Select",
-            border: OutlineInputBorder(),
-          ),
-          value: selectedProduct,
-          items: products
-              .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-              .toList(),
-          onChanged: (v) {
-            setState(() {
-              selectedProduct = v;
-              selectedPos.clear(); // Reset POS when product changes
-            });
-          },
-        ),
-        const SizedBox(height: 12),
+            DropdownButtonFormField(
+              decoration: _dropdownStyle("Product Select"),
+              value: selectedProduct,
+              items: products
+                  .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                  .toList(),
+              onChanged: (v) {
+                setState(() {
+                  selectedProduct = v;
+                  selectedPos.clear();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
 
-        // ⭐ SHOW POS OPTIONS ONLY IF "Restaurant Pos" SELECTED
-        if (selectedProduct == "Restaurant Pos") ...[
-          const Text(
-            "Select POS Options:",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
+            if (selectedProduct == "Restaurant Pos") ...[
+              const Text(
+                "POS Options",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Column(
+                children: posOptions.map((pos) {
+                  return CheckboxListTile(
+                    title: Text(pos),
+                    value: selectedPos.contains(pos),
+                    onChanged: (checked) {
+                      setState(() {
+                        checked!
+                            ? selectedPos.add(pos)
+                            : selectedPos.remove(pos);
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
 
-          Column(
-            children: posOptions.map((pos) {
-              return CheckboxListTile(
-                title: Text(pos),
-                value: selectedPos.contains(pos),
-                onChanged: (checked) {
-                  setState(() {
-                    if (checked == true) {
-                      selectedPos.add(pos);
-                    } else {
-                      selectedPos.remove(pos);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-        ],
+            DropdownButtonFormField(
+              decoration: _dropdownStyle("Payment Method"),
+              value: selectedPaymentMethod,
+              items: paymentOptions
+                  .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                  .toList(),
+              onChanged: (v) => setState(() => selectedPaymentMethod = v),
+            ),
+            const SizedBox(height: 12),
 
-        // PAYMENT METHOD DROPDOWN
-        DropdownButtonFormField(
-          decoration: const InputDecoration(
-            labelText: "Payment Method",
-            border: OutlineInputBorder(),
-          ),
-          value: selectedPaymentMethod,
-          items: paymentOptions
-              .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-              .toList(),
-          onChanged: (v) => setState(() => selectedPaymentMethod = v),
-        ),
-        const SizedBox(height: 12),
+            _textField(costCtrl, "Cost", keyboard: TextInputType.number),
+            const SizedBox(height: 12),
 
-        // COST
-        _textField(costCtrl, "Cost", keyboard: TextInputType.number),
-        const SizedBox(height: 12),
+            _textField(
+              discountCtrl,
+              "Discount %",
+              keyboard: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
 
-        // DISCOUNT
-        _textField(discountCtrl, "Discount %", keyboard: TextInputType.number),
-        const SizedBox(height: 12),
+            _textField(
+              balanceCtrl,
+              "Balance to Pay",
+              keyboard: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
 
-        // BALANCE
-        _textField(
-          balanceCtrl,
-          "Balance to Pay",
-          keyboard: TextInputType.number,
-        ),
-        const SizedBox(height: 12),
-
-        // COMMENT FIELD
-        TextField(
-          controller: commentCtrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: "Comment",
-            border: OutlineInputBorder(),
-          ),
+            TextField(
+              controller: commentCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: "Comments",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -298,20 +434,23 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(),
-        const Text(
-          "Closed Reason",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
+        _sectionTitle("Closed - Reason"),
 
-        TextField(
-          controller: reasonCtrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: "Reason",
-            border: OutlineInputBorder(),
-          ),
+        _card(
+          children: [
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: "Reason",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+              ),
+            ),
+          ],
         ),
       ],
     );

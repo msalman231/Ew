@@ -17,7 +17,6 @@ class MyApp extends StatelessWidget {
 
       routes: {
         "/login": (context) => const LoginPage(),
-
         "/home": (context) {
           final args =
               ModalRoute.of(context)!.settings.arguments

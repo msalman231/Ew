@@ -1,15 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:efficient_works/config/constants.dart';
 
 class AttendanceService {
-  static const String baseUrl =
-      "https://f5vfl9mt-3000.inc1.devtunnels.ms"; // update if needed
-
   /// CHECK-IN
   static Future<bool> checkIn(int userId, String username) async {
     try {
       final res = await http.post(
-        Uri.parse("$baseUrl/attendance"),
+        Uri.parse("${AppConfig.baseUrl}/attendance"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": userId,
@@ -29,7 +27,7 @@ class AttendanceService {
   static Future<bool> checkOut(int userId, String username) async {
     try {
       final res = await http.post(
-        Uri.parse("$baseUrl/attendance"),
+        Uri.parse("${AppConfig.baseUrl}/attendance"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": userId,

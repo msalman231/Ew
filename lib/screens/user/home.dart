@@ -1,18 +1,15 @@
 import 'dart:async';
-// import 'dart:convert';
 import 'package:flutter/material.dart';
-// import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
-// import 'restaurant_form_page.dart';
+import '../../services/attendance_service.dart';
 import 'restaurant_edit.dart';
-import 'drawer_menu.dart';
-
-final String baseUrl = "https://f5vfl9mt-3000.inc1.devtunnels.ms";
+import 'restaurant_form_page.dart';
+import 'restaurant_list.dart';
 
 class HomePage extends StatefulWidget {
   final String email;
@@ -31,406 +28,452 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool searchActive = false;
-  bool dateFilterActive = false;
-
-  DateTime? fromDate;
-  DateTime? toDate;
-
-  Timer? locationTimer;
-
-  List<dynamic> allRestaurants = [];
-  List<dynamic> filteredRestaurants = [];
-  String searchQuery = "";
-  String sortOrder = "latest";
-
-  String selectedType = "All";
-
   StreamSubscription<Position>? positionStream;
+  List<dynamic> filteredRestaurants = [];
 
-  final List<String> typeFilters = [
-    "All",
-    "Leads",
-    "Follows",
-    "Future Follows",
-    "Closed",
-    "Installation",
-    "Conversion",
-  ];
+  String? checkInTime;
+  String? checkOutTime;
+  bool hasCheckedIn = false;
+  bool hasCheckedOut = false;
+
+  void resetIfNewDay() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final lastDate = prefs.getString("lastAttendanceDate");
+    final today = DateTime.now();
+    final todayStr = "${today.year}-${today.month}-${today.day}";
+
+    if (lastDate != todayStr) {
+      // New day → reset UI values
+      setState(() {
+        checkInTime = null;
+        checkOutTime = null;
+        hasCheckedIn = false;
+        hasCheckedOut = false;
+      });
+
+      // New day → reset stored values
+      await prefs.setString("checkInTime", "");
+      await prefs.setString("checkOutTime", "");
+      await prefs.setString("lastAttendanceDate", todayStr);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    loadCheckState().then((_) => resetIfNewDay());
     loadRestaurants();
     startLocationTracking();
+  }
+
+  int _selectedIndex = 0;
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  Future<void> loadCheckState() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedCheckIn = prefs.getString("checkInTime");
+    final savedCheckOut = prefs.getString("checkOutTime");
+
+    setState(() {
+      checkInTime = (savedCheckIn != null && savedCheckIn.isNotEmpty)
+          ? savedCheckIn
+          : null;
+      checkOutTime = (savedCheckOut != null && savedCheckOut.isNotEmpty)
+          ? savedCheckOut
+          : null;
+
+      hasCheckedIn = checkInTime != null;
+      hasCheckedOut = checkOutTime != null;
+    });
+  }
+
+  Future<void> saveCheckState() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString("checkInTime", checkInTime ?? "");
+    await prefs.setString("checkOutTime", checkOutTime ?? "");
+    await prefs.setBool("hasCheckedIn", hasCheckedIn);
+    await prefs.setBool("hasCheckedOut", hasCheckedOut);
+  }
+
+  String _formatTime(TimeOfDay t) {
+    final hour = t.hourOfPeriod.toString().padLeft(2, '0');
+    final min = t.minute.toString().padLeft(2, '0');
+    final period = t.period == DayPeriod.am ? "AM" : "PM";
+    return "$hour:$min $period";
   }
 
   @override
   void dispose() {
     positionStream?.cancel();
-
     super.dispose();
   }
 
   Future<void> loadRestaurants() async {
     final list = await RestaurantService.getRestaurantsByUser(widget.userId);
 
-    print("API RESTAURANT DATA → $list"); // ADD THIS
     setState(() {
-      allRestaurants = list;
-      applyFilters();
+      filteredRestaurants = list.take(2).toList();
     });
   }
 
   void startLocationTracking() {
-    const LocationSettings locationSettings = LocationSettings(
+    const settings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // update every 5 meters movement
+      distanceFilter: 5,
     );
 
-    positionStream =
-        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-          (Position position) async {
-            // Capture & send location
-            String address = await _getAddress(
-              position.latitude,
-              position.longitude,
-            );
+    positionStream = Geolocator.getPositionStream(locationSettings: settings)
+        .listen((Position pos) async {
+          final addr = await _getAddress(pos.latitude, pos.longitude);
 
-            await RestaurantService.trackLocation(
-              userId: widget.userId,
-              email: widget.email,
-              latitude: position.latitude.toString(),
-              longitude: position.longitude.toString(),
-              address: address,
-            );
-            print(
-              "📍 LIVE LOCATION → ${position.latitude}, ${position.longitude}",
-            );
-          },
-        );
+          await RestaurantService.trackLocation(
+            userId: widget.userId,
+            email: widget.email,
+            latitude: pos.latitude.toString(),
+            longitude: pos.longitude.toString(),
+            address: addr,
+          );
+        });
   }
 
   Future<String> _getAddress(double lat, double lng) async {
-    final places = await placemarkFromCoordinates(lat, lng);
-    final p = places.first;
-    return "${p.street}, ${p.locality}, ${p.administrativeArea}, ${p.country}";
+    final placemarks = await placemarkFromCoordinates(lat, lng);
+    final p = placemarks.first;
+    return "${p.street}, ${p.locality}, ${p.country}";
   }
 
-  Future<void> captureAndSendLocation() async {
-    try {
-      final loc = await LocationService.getLocationDetails();
+  // ----------------------------------------------------------------------
+  // CHECK IN
+  // ----------------------------------------------------------------------
+  Future<void> doCheckIn() async {
+    final now = TimeOfDay.now();
 
-      await RestaurantService.trackLocation(
-        userId: widget.userId,
-        email: widget.email, // ✅ added
-        address: loc["address"]!,
-        latitude: loc["latitude"]!,
-        longitude: loc["longitude"]!,
-      );
+    setState(() {
+      // New check-in should always clear old checkout
+      checkInTime = _formatTime(now);
+      checkOutTime = null;
 
-      debugPrint("Location stored successfully");
-    } catch (e) {
-      debugPrint("Location tracking failed → $e");
-    }
-  }
-
-  void applyFilters() {
-    List<dynamic> list = List.from(allRestaurants);
-
-    if (searchQuery.isNotEmpty) {
-      list = list.where((r) {
-        final name = (r["name"] ?? "").toString().toLowerCase();
-        return name.contains(searchQuery.toLowerCase());
-      }).toList();
-    }
-
-    if (selectedType != "All") {
-      list = list.where((r) {
-        final type = (r["res_type"] ?? "").toString().toLowerCase();
-        return type == selectedType.toLowerCase();
-      }).toList();
-    }
-
-    if (fromDate != null && toDate != null) {
-      list = list.where((r) {
-        if (r["created_at"] == null) return false;
-
-        final created = DateTime.tryParse(r["created_at"]) ?? DateTime(2000);
-
-        return created.isAfter(fromDate!) &&
-            created.isBefore(toDate!.add(const Duration(days: 1)));
-      }).toList();
-    }
-
-    list.sort((a, b) {
-      final aTime = DateTime.tryParse(a["created_at"] ?? "") ?? DateTime(2000);
-      final bTime = DateTime.tryParse(b["created_at"] ?? "") ?? DateTime(2000);
-      return sortOrder == "latest"
-          ? bTime.compareTo(aTime)
-          : aTime.compareTo(bTime);
+      hasCheckedIn = true;
+      hasCheckedOut = false;
     });
 
-    setState(() => filteredRestaurants = list);
+    await saveCheckState();
+    await AttendanceService.checkIn(widget.userId, widget.email);
   }
 
-  Future<void> pickDate({required bool isFrom}) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+  // ----------------------------------------------------------------------
+  // CHECK OUT
+  // ----------------------------------------------------------------------
+  Future<void> doCheckOut() async {
+    final now = TimeOfDay.now();
 
-    if (picked != null) {
-      setState(() {
-        if (isFrom)
-          fromDate = picked;
-        else
-          toDate = picked;
-      });
-    }
-  }
+    setState(() {
+      hasCheckedOut = true;
+      checkOutTime = _formatTime(now);
+    });
 
-  Future<void> logout() async {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to logout?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-
-              // ⭐ 1. Capture location BEFORE logging out
-              try {
-                final loc = await LocationService.getLocationDetails();
-                await RestaurantService.trackLocation(
-                  userId: widget.userId,
-                  email: widget.email,
-                  latitude: loc["latitude"]!,
-                  longitude: loc["longitude"]!,
-                  address: loc["address"]!,
-                );
-                debugPrint("📍 Last location saved before logout");
-              } catch (e) {
-                debugPrint("🔥 Failed to capture last location: $e");
-              }
-
-              // Stop the timer immediately
-              positionStream?.cancel();
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                "/login",
-                (_) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Logout"),
-          ),
-        ],
-      ),
-    );
+    await saveCheckState();
+    await AttendanceService.checkOut(widget.userId, widget.email);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: DrawerMenu(
-        userId: widget.userId,
-        email: widget.email,
-        username: widget.username,
-        onVisitCompleted: () => loadRestaurants(),
-      ),
+      backgroundColor: Colors.grey.shade100,
 
       appBar: AppBar(
-        title: const Text("Home", style: TextStyle(color: Colors.white)),
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.deepPurple,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: logout,
-            color: Colors.white,
+        centerTitle: true,
+        title: const Text(
+          "Home",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+
+      bottomNavigationBar: _bottomNavBar(),
+
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _greeting(),
+            const SizedBox(height: 10),
+            _checkInSection(),
+            const SizedBox(height: 10),
+            _visitButton(),
+            const SizedBox(height: 20),
+            _latestLeadsHeader(),
+            const SizedBox(height: 10),
+            _restaurantList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------------
+  // GREETING
+  // ----------------------------------------------------------------------
+  Widget _greeting() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Hello Hi !",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  "Good Morning ${widget.username}",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: Colors.grey.shade200,
+            backgroundImage: AssetImage("assets/images/user_avatar.png"),
           ),
         ],
       ),
+    );
+  }
 
-      body: SafeArea(
-        child: Column(
+  // -------------------------------------------------------------
+  // CHECK-IN UI CARD
+  // -------------------------------------------------------------
+  Widget _checkInSection() {
+    final today = DateTime.now();
+
+    final formattedDate =
+        "${_getWeekday(today.weekday)}, ${today.day} ${_getMonth(today.month)} ${today.year} (Today)";
+
+    final isCheckInDisabled = checkInTime != null && checkOutTime == null;
+    final isCheckOutDisabled = checkInTime == null || checkOutTime != null;
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Color(0xFFE0F7F4),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.teal.shade100, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center, // CENTER CONTENT
+        children: [
+          // CENTERED DATE ROW
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _styledButton(
+                label: "Check In",
+                icon: Icons.login,
+                color: Colors.teal,
+                disabled: isCheckInDisabled,
+                onTap: () async => await doCheckIn(),
+              ),
+              _styledButton(
+                label: "Check Out",
+                icon: Icons.logout,
+                color: Colors.teal.shade300,
+                disabled: isCheckOutDisabled,
+                onTap: () async => await doCheckOut(),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 10),
+
+          // CENTERED STATUS TEXT
+          Text(
+            checkInTime == null
+                ? "No check-in yet"
+                : checkOutTime == null
+                ? "Checkin Time : $checkInTime"
+                : "Checkout Time : $checkOutTime",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _styledButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool disabled,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: disabled ? null : onTap,
+        child: Container(
+          height: 50,
+          margin: EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: disabled ? Colors.teal.shade100 : color,
+            borderRadius: BorderRadius.circular(40), // Capsule button
+            boxShadow: [
+              if (!disabled)
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: disabled ? Colors.white70 : Colors.white,
+                size: 22,
+              ),
+              SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: disabled ? Colors.white70 : Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getWeekday(int day) {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    return days[day - 1];
+  }
+
+  String _getMonth(int month) {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return months[month - 1];
+  }
+
+  // -------------------------------------------------------------
+  // CHECK-IN / OUT BUTTON WIDGET
+  // -------------------------------------------------------------
+  Widget _checkButton({
+    required String label,
+    required Color color,
+    required bool disabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: disabled ? null : onTap,
+      child: Container(
+        width: 130,
+        height: 45,
+        decoration: BoxDecoration(
+          color: disabled ? Colors.grey.shade300 : color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: disabled ? Colors.black38 : Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------------
+  // VISIT BUTTON
+  // ----------------------------------------------------------------------
+  Widget _visitButton() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RestaurantFormPage(
+              userId: widget.userId,
+              email: widget.email,
+              username: widget.username,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [Colors.teal, Colors.greenAccent]),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildTopFilter(),
-
-            /// Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              color: Colors.black12,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Restaurant List",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-
-                  /// 🔽 Restaurant Type Filter Dropdown
-                  DropdownButton<String>(
-                    value: selectedType,
-                    underline: Container(),
-                    items: typeFilters.map((type) {
-                      return DropdownMenuItem(value: type, child: Text(type));
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedType = value!;
-                      });
-                      applyFilters();
-                    },
-                  ),
-                ],
+            Text(
+              "Visit",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
               ),
             ),
-
-            /// TABLE VIEW
-            Expanded(
-              child: filteredRestaurants.isEmpty
-                  ? const Center(child: Text("No restaurants found"))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: filteredRestaurants.length,
-                      itemBuilder: (context, index) {
-                        final r = filteredRestaurants[index];
-
-                        final String name = r["name"] ?? "-";
-                        final String contact = r["contact"] ?? "-";
-                        final String phone = r["phone"] ?? "-";
-                        final String location = r["location"] ?? "-";
-
-                        final double? lat = r["latitude"] != null
-                            ? double.tryParse(r["latitude"].toString())
-                            : null;
-
-                        final double? lng = r["longitude"] != null
-                            ? double.tryParse(r["longitude"].toString())
-                            : null;
-
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 3,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // ----------------------
-                                // TITLE (Restaurant Name)
-                                // ----------------------
-                                Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-
-                                const SizedBox(height: 8),
-
-                                // ----------------------
-                                // DETAILS SECTION
-                                // ----------------------
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text("Address: $location"),
-                                      Text("Contact Person: $contact"),
-                                      Text("Phone: $phone"),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(height: 8),
-
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    // ----------------------
-                                    // CALL BUTTON
-                                    // ----------------------
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.call,
-                                        color: Colors.green,
-                                      ),
-                                      onPressed: phone.isNotEmpty
-                                          ? () => launchUrl(
-                                              Uri.parse("tel:$phone"),
-                                            )
-                                          : null,
-                                    ),
-
-                                    // ----------------------
-                                    // DIRECTIONS BUTTON
-                                    // ----------------------
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.directions,
-                                        color: Colors.blue,
-                                      ),
-                                      onPressed: () async {
-                                        if (lat == null || lng == null) return;
-
-                                        final Uri mapUrl = Uri.parse(
-                                          "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
-                                        );
-
-                                        await launchUrl(
-                                          mapUrl,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      },
-                                    ),
-
-                                    // ----------------------
-                                    // EDIT BUTTON
-                                    // ----------------------
-                                    TextButton(
-                                      onPressed: () async {
-                                        bool? updated = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => RestaurantEditPage(
-                                              restaurant: r,
-                                            ),
-                                          ),
-                                        );
-
-                                        if (updated == true) loadRestaurants();
-                                      },
-                                      child: const Text("Edit"),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: Colors.white,
+              child: Padding(
+                padding: EdgeInsets.all(
+                  6,
+                ), // reduce padding to increase image size
+                child: Image.asset(
+                  "assets/images/arrow.png",
+                  width: 20,
+                  height: 20,
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ],
         ),
@@ -438,166 +481,199 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTopFilter() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  // ----------------------------------------------------------------------
+  // HEADER
+  // ----------------------------------------------------------------------
+  Widget _latestLeadsHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        "Latest Leads",
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      ),
+    );
+  }
 
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              /// ==============================================
-              /// SEARCH MODE
-              /// ==============================================
-              if (searchActive) ...[
-                SizedBox(
-                  width: MediaQuery.of(context).size.width - 32,
-                  child: TextField(
-                    autofocus: true,
-                    onChanged: (value) {
-                      searchQuery = value;
-                      applyFilters(); // live update
-                    },
-                    decoration: InputDecoration(
-                      labelText: "Search",
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          setState(() {
-                            searchActive = false;
-                            searchQuery = "";
-                          });
-                          applyFilters();
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ]
-              /// ==============================================
-              /// DATE FILTER MODE
-              /// ==============================================
-              else if (dateFilterActive) ...[
-                ElevatedButton(
-                  onPressed: () async {
-                    await pickDate(isFrom: true);
-                    applyFilters();
-                  },
-                  child: Text(
-                    fromDate == null
-                        ? "From"
-                        : "${fromDate!.day}-${fromDate!.month}-${fromDate!.year}",
-                  ),
-                ),
-                const SizedBox(width: 8),
+  // ----------------------------------------------------------------------
+  // RESTAURANT LIST
+  // ----------------------------------------------------------------------
+  Widget _restaurantList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      itemCount: filteredRestaurants.length,
+      itemBuilder: (context, i) {
+        final r = filteredRestaurants[i];
 
-                ElevatedButton(
-                  onPressed: () async {
-                    await pickDate(isFrom: false);
-                    applyFilters();
-                  },
-                  child: Text(
-                    toDate == null
-                        ? "To"
-                        : "${toDate!.day}-${toDate!.month}-${toDate!.year}",
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      sortOrder = sortOrder == "latest" ? "oldest" : "latest";
-                    });
-                    applyFilters();
-                  },
-                  child: Text(sortOrder == "latest" ? "Latest" : "Oldest"),
-                ),
-
-                const SizedBox(width: 8),
-
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    setState(() {
-                      dateFilterActive = false;
-                      fromDate = null;
-                      toDate = null;
-                    });
-                    applyFilters();
-                  },
-                ),
-              ]
-              /// ==============================================
-              /// NORMAL MODE (default)
-              /// ==============================================
-              else ...[
-                /// SEARCH BOX (non-editable)
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.45,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        searchActive = true;
-                        dateFilterActive = false;
-                      });
-                    },
-                    child: const AbsorbPointer(
-                      absorbing: true,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          labelText: "Search",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                /// FROM BUTTON
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      dateFilterActive = true;
-                      searchActive = false;
-                    });
-                    pickDate(isFrom: true);
-                  },
-                  child: const Text("From"),
-                ),
-                const SizedBox(width: 8),
-
-                /// TO BUTTON
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      dateFilterActive = true;
-                      searchActive = false;
-                    });
-                    pickDate(isFrom: false);
-                  },
-                  child: const Text("To"),
-                ),
-                const SizedBox(width: 8),
-
-                /// SORT BUTTON (always visible in normal mode)
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      sortOrder = sortOrder == "latest" ? "oldest" : "latest";
-                    });
-                    applyFilters();
-                  },
-                  child: Text(sortOrder == "latest" ? "Latest" : "Oldest"),
-                ),
-              ],
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: Offset(0, 3),
+              ),
             ],
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ---------------- TOP ROW ----------------
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Restaurant Icon
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Image.asset(
+                      "assets/images/shop.png",
+                      height: 28,
+                      width: 28,
+                      color: Colors.teal,
+                    ),
+                  ),
+
+                  SizedBox(width: 10),
+
+                  // Restaurant Name
+                  Expanded(
+                    child: Text(
+                      r["name"],
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+
+                  // Edit Icon
+                  InkWell(
+                    onTap: () async {
+                      bool? updated = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RestaurantEditPage(restaurant: r),
+                        ),
+                      );
+                      if (updated == true) loadRestaurants();
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Image.asset(
+                        "assets/images/edit.png",
+                        height: 22,
+                        width: 22,
+                        color: Colors.teal, // remove if image has its own color
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 10),
+
+              // ---------------- ADDRESS ----------------
+              Text(
+                "${r['location'] ?? ''}",
+                style: TextStyle(color: Colors.black87, height: 1.4),
+              ),
+
+              SizedBox(height: 16),
+
+              Divider(height: 1, color: Colors.grey.shade300),
+
+              // ---------------- BOTTOM BUTTONS ----------------
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          launchUrl(Uri.parse("tel:${r['phone']}")),
+                      icon: Icon(Icons.call, color: Colors.teal),
+                      label: Text(
+                        "Call",
+                        style: TextStyle(color: Colors.teal, fontSize: 16),
+                      ),
+                    ),
+                  ),
+                  Container(height: 30, width: 1, color: Colors.grey.shade300),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        final uri = Uri.parse(
+                          "https://www.google.com/maps/dir/?api=1&destination=${r["latitude"]},${r["longitude"]}",
+                        );
+                        launchUrl(uri, mode: LaunchMode.externalApplication);
+                      },
+                      icon: Icon(Icons.location_on, color: Colors.teal),
+                      label: Text(
+                        "Direction",
+                        style: TextStyle(color: Colors.teal, fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ----------------------------------------------------------------------
+  // BOTTOM NAVIGATION BAR
+  // ----------------------------------------------------------------------
+  Widget _bottomNavBar() {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      selectedItemColor: Colors.teal,
+      unselectedItemColor: Colors.grey.shade600,
+      showUnselectedLabels: true,
+
+      onTap: (index) {
+        if (index == 1) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RestaurantListPage(userId: widget.userId),
+            ),
+          );
+        }
+      },
+
+      items: [
+        BottomNavigationBarItem(
+          icon: Image.asset("assets/images/home.png", width: 28),
+          activeIcon: Image.asset(
+            "assets/images/home_filled.png", // filled icon
+            width: 30,
+          ),
+          label: "Home",
         ),
-      ),
+
+        BottomNavigationBarItem(
+          icon: Image.asset("assets/images/leads.png", width: 28),
+          activeIcon: Image.asset(
+            "assets/images/leads_filled.png", // filled icon
+            width: 30,
+          ),
+          label: "My Leads",
+        ),
+      ],
     );
   }
 }

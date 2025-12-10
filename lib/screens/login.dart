@@ -1,12 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'user/home.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'admin/admin_home.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-final String baseUrl =
-    "https://f5vfl9mt-3000.inc1.devtunnels.ms"; // Backend URL
+import 'admin/admin_home.dart';
+import 'user/home.dart';
+
+import '../../config/constants.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,50 +23,72 @@ class _LoginPageState extends State<LoginPage> {
   bool _showPassword = false;
   bool _isLoading = false;
 
-  /// ---- API: Validate Email + Passcode ----
-  /// Returns user data when valid, null when invalid/error
+  /// -------------------------------------------------
+  /// API: Validate Login Credentials
+  /// -------------------------------------------------
   Future<Map<String, dynamic>?> validateUser(
     String email,
     String passcode,
   ) async {
-    final url = Uri.parse('$baseUrl/auth/validate');
+    final url = Uri.parse('${AppConfig.baseUrl}/auth/validate');
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({"email": email, "passcode": passcode}),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email, "passcode": passcode}),
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['valid'] == true) return data;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['valid'] == true) return data;
+      }
+      return null;
+    } catch (e) {
+      debugPrint("LOGIN ERROR: $e");
+      return null;
     }
-    return null;
   }
 
-  /// ---- Validate Inputs + Backend Login ----
-  void _validateAndLogin() async {
+  /// -------------------------------------------------
+  /// Save Login Credentials
+  /// -------------------------------------------------
+  Future<void> saveLoginData(
+    int userId,
+    String email,
+    String username,
+    String role,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setInt("userId", userId);
+    await prefs.setString("email", email);
+    await prefs.setString("username", username);
+    await prefs.setString("role", role);
+    await prefs.setBool("loggedIn", true);
+  }
+
+  /// -------------------------------------------------
+  /// Validate & Login
+  /// -------------------------------------------------
+  Future<void> _validateAndLogin() async {
     if (email.text.isEmpty || password.text.isEmpty) {
       _showError("Please fill all fields");
       return;
     }
 
-    bool emailValid = RegExp(
-      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-    ).hasMatch(email.text);
-
-    if (!emailValid) {
-      _showError("Please enter a valid email address");
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email.text)) {
+      _showError("Invalid email format");
       return;
     }
 
-    bool passValid = RegExp(r'^[0-9]{10}$').hasMatch(password.text);
-    if (!passValid) {
-      _showError("Password must be a 10-digit numeric code");
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(password.text)) {
+      _showError("Password must be a 10-digit code");
       return;
     }
 
     setState(() => _isLoading = true);
+
     final userData = await validateUser(email.text, password.text);
 
     if (userData == null) {
@@ -75,6 +98,14 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final user = userData['user'];
+
+    // SAVE LOGIN DETAILS
+    await saveLoginData(
+      user['id'],
+      user['email'],
+      user['username'],
+      user['role'],
+    );
 
     if (user['role'] == 'admin') {
       Navigator.pushReplacement(
@@ -96,11 +127,11 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     }
-
-    setState(() => _isLoading = false);
   }
 
-  /// Snackbar Error
+  /// -------------------------------------------------
+  /// Show Error Snackbar
+  /// -------------------------------------------------
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -127,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          /// Liquid Effect Blobs
+          /// Background Blobs
           Positioned(
             top: -60,
             right: -40,
@@ -139,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
             child: _blob(250, Colors.blueAccent),
           ),
 
-          /// Glass Login Box
+          /// Login Box
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -154,6 +185,7 @@ class _LoginPageState extends State<LoginPage> {
                       border: Border.all(color: Colors.white.withOpacity(0.3)),
                       color: Colors.white.withOpacity(0.1),
                     ),
+
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -188,9 +220,7 @@ class _LoginPageState extends State<LoginPage> {
                           isPasswordField: true,
                           showPassword: _showPassword,
                           onTogglePassword: () {
-                            setState(() {
-                              _showPassword = !_showPassword;
-                            });
+                            setState(() => _showPassword = !_showPassword);
                           },
                         ),
 
@@ -241,7 +271,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Reusable TextField
+  /// Glass Effect TextField
   Widget _glassTextField({
     required TextEditingController controller,
     required String hint,
@@ -291,7 +321,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Blurred Blob
+  /// Decorative Background Blob
   Widget _blob(double size, Color color) {
     return Container(
       width: size,

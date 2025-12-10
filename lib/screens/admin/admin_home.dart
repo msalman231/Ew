@@ -83,6 +83,7 @@ class AdminHomePage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          ///Users List Page
           IconButton(
             icon: const Icon(Icons.people, size: 32),
             color: Colors.black,
@@ -110,6 +111,7 @@ class AdminHomePage extends StatelessWidget {
             ),
           ),
 
+          ///Restaurant List Page
           IconButton(
             icon: const Icon(Icons.restaurant_menu, size: 32),
             color: Colors.black,
