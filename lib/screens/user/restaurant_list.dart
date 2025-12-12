@@ -21,6 +21,20 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   String selectedStatus = "All";
   TextEditingController searchCtrl = TextEditingController();
 
+  // Map display labels -> normalized backend values (adjust RHS to match your backend)
+  final Map<String, String> statusMap = {
+    "All": "",
+    "Leads": "leads",
+    "Follows": "follows",
+    "Future Follows": "future_follows",
+    "Closed": "closed",
+    "Installation": "installation",
+    "Conversion": "conversion",
+  };
+
+  // helper to normalize a string safely
+  String _norm(String? s) => s?.toString().trim().toLowerCase() ?? "";
+
   @override
   void initState() {
     super.initState();
@@ -35,7 +49,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
 
     setState(() {
       allRestaurants = list;
-      filteredList = list; // default full list
+      filteredList = list;
     });
   }
 
@@ -45,21 +59,12 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   void applyFilters() {
     List<dynamic> temp = allRestaurants;
 
-    // SEARCH FILTER
-    if (searchCtrl.text.isNotEmpty) {
-      temp = temp.where((r) {
-        final name = r["name"]?.toString().toLowerCase() ?? "";
-        return name.contains(searchCtrl.text.toLowerCase());
-      }).toList();
-    }
+    // ------------------------- DATE FILTER -------------------------
+    final now = DateTime.now();
 
-    // DATE FILTER
     temp = temp.where((r) {
-      if (r["created_at"] == null) return true;
-
+      if (r["created_at"] == null) return false;
       final created = DateTime.parse(r["created_at"]);
-      final now = DateTime.now();
-      final yesterday = now.subtract(Duration(days: 1));
 
       if (selectedDate == "Today") {
         return created.year == now.year &&
@@ -68,19 +73,65 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       }
 
       if (selectedDate == "Yesterday") {
-        return created.year == yesterday.year &&
-            created.month == yesterday.month &&
-            created.day == yesterday.day;
+        final y = now.subtract(Duration(days: 1));
+        return created.year == y.year &&
+            created.month == y.month &&
+            created.day == y.day;
+      }
+
+      if (selectedDate == "Last Week") {
+        final start = now.subtract(Duration(days: 7));
+        return created.isAfter(start) &&
+            created.isBefore(now.add(Duration(days: 1)));
+      }
+
+      if (selectedDate == "This Month") {
+        final start = DateTime(now.year, now.month, 1);
+        return created.isAfter(start) &&
+            created.isBefore(now.add(Duration(days: 1)));
+      }
+
+      if (selectedDate == "Last Month") {
+        final prevMonth = DateTime(now.year, now.month - 1, 1);
+        final lastDay = DateTime(now.year, now.month, 0);
+        return created.isAfter(prevMonth) && created.isBefore(lastDay);
       }
 
       return true;
     }).toList();
 
-    // STATUS FILTER
+    // Save this list to apply search + status independently
+    List<dynamic> afterDateFilter = temp;
+
+    // ---------------------------------------------------------
+    // 2. SEARCH FILTER (should search across ALL restaurants)
+    // ---------------------------------------------------------
+    if (searchCtrl.text.isNotEmpty) {
+      temp = allRestaurants.where((r) {
+        final name = r["name"]?.toString().toLowerCase() ?? "";
+        return name.contains(searchCtrl.text.toLowerCase());
+      }).toList();
+    } else {
+      temp = afterDateFilter;
+    }
+
+    // ---------------------------------------------------------
+    // 3. STATUS FILTER
+    // ---------------------------------------------------------
     if (selectedStatus != "All") {
+      final expected = _norm(statusMap[selectedStatus]);
+
       temp = temp.where((r) {
-        final status = r["status"]?.toString().toLowerCase() ?? "";
-        return status == selectedStatus.toLowerCase();
+        final raw = r["res_type"];
+        final resType = _norm(raw?.toString());
+
+        print("BACKEND res_type: '${r["res_type"]}'  | expected: '$expected'");
+
+        if (expected.isNotEmpty && resType == expected) return true;
+        if (expected.isNotEmpty && resType.contains(expected)) return true;
+        if (_norm(r["res_type"]) == _norm(selectedStatus)) return true;
+
+        return false;
       }).toList();
     }
 
@@ -102,11 +153,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       ),
       child: Row(
         children: [
-          Image.asset(
-            "assets/images/search.png", // <-- your search icon
-            width: 22,
-            height: 22,
-          ),
+          Image.asset("assets/images/search.png", width: 22, height: 22),
           SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -124,6 +171,14 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   }
 
   Widget _dateFilterDropdown() {
+    final dateOptions = [
+      "Today",
+      "Yesterday",
+      "Last Week",
+      "This Month",
+      "Last Month",
+    ];
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -134,26 +189,36 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedDate,
-          icon: Image.asset(
-            "assets/images/down_arrow.png", // <-- your dropdown arrow
-            width: 18,
-          ),
-          items: ["Today", "Yesterday"].map((e) {
-            return DropdownMenuItem(
-              value: e,
-              child: Row(
+          icon: Image.asset("assets/images/down_arrow.png", width: 18),
+
+          // Selected item display ONLY
+          selectedItemBuilder: (_) {
+            return dateOptions.map((e) {
+              return Row(
                 children: [
                   Image.asset(
-                    "assets/images/calendar.png", // <-- your calendar icon
+                    "assets/images/calendar.png",
                     width: 20,
                     height: 20,
                   ),
                   SizedBox(width: 8),
-                  Text(e),
+                  Text(
+                    e,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ],
-              ),
+              );
+            }).toList();
+          },
+
+          // Dropdown List Items (NO ICONS)
+          items: dateOptions.map((e) {
+            return DropdownMenuItem(
+              value: e,
+              child: Text(e, style: TextStyle(fontSize: 15)),
             );
           }).toList(),
+
           onChanged: (value) {
             setState(() => selectedDate = value!);
             applyFilters();
@@ -184,26 +249,39 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedStatus,
-          icon: Image.asset(
-            "assets/images/down_arrow.png", // <-- your dropdown arrow
-            width: 18,
-          ),
-          items: statuses.map((e) {
-            return DropdownMenuItem(
-              value: e,
-              child: Row(
+          icon: Image.asset("assets/images/down_arrow.png", width: 18),
+
+          // Selected item shows icon if it is the selected item
+          selectedItemBuilder: (_) {
+            return statuses.map((status) {
+              return Row(
                 children: [
-                  Image.asset(
-                    "assets/images/setting.png", // <-- your filter icon
-                    width: 20,
-                    height: 20,
+                  // Show icon ONLY for the currently selected status
+                  if (selectedStatus == status)
+                    Image.asset(
+                      "assets/images/setting.png",
+                      width: 20,
+                      height: 20,
+                    ),
+                  if (selectedStatus == status) SizedBox(width: 8),
+
+                  Text(
+                    status,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                  SizedBox(width: 8),
-                  Text(e),
                 ],
-              ),
+              );
+            }).toList();
+          },
+
+          // Dropdown items — NO ICONS inside the list
+          items: statuses.map((status) {
+            return DropdownMenuItem(
+              value: status,
+              child: Text(status, style: TextStyle(fontSize: 15)),
             );
           }).toList(),
+
           onChanged: (value) {
             setState(() => selectedStatus = value!);
             applyFilters();

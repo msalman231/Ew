@@ -34,6 +34,9 @@ dependencies:
   google_maps_flutter: ^2.5.0
 
   shared_preferences: ^2.2.0
+  flutter_credential_manager: ^2.0.10
+  flutter_secure_storage: ^9.0.0
+
 
 
   geolocator: ^12.0.0
@@ -77,6 +80,8 @@ flutter:
     - assets/images/search.png
     - assets/images/setting.png
     - assets/images/down_arrow.png
+    - assets/images/restaurant.png
+    - assets/images/retail.png
 
     
 

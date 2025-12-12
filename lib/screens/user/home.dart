@@ -191,7 +191,7 @@ class _HomePageState extends State<HomePage> {
 
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.teal,
         centerTitle: true,
         title: const Text(
           "Home",
@@ -276,8 +276,26 @@ class _HomePageState extends State<HomePage> {
         border: Border.all(color: Colors.teal.shade100, width: 1),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center, // CENTER CONTENT
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // DATE DISPLAY
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.calendar_today, size: 18, color: Colors.black87),
+              SizedBox(width: 6),
+              Text(
+                formattedDate,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+
           // CENTERED DATE ROW
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -298,7 +316,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-
           SizedBox(height: 10),
 
           // CENTERED STATUS TEXT

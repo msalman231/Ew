@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'admin/admin_home.dart';
 import 'user/home.dart';
@@ -20,8 +21,24 @@ class _LoginPageState extends State<LoginPage> {
   final email = TextEditingController();
   final password = TextEditingController();
 
+  final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
+
   bool _showPassword = false;
   bool _isLoading = false;
+
+  /// -------------------------------------------------
+  /// Save credentials securely (local encrypted storage)
+  /// -------------------------------------------------
+  Future<void> _savePasswordSecurely(String email, String passcode) async {
+    try {
+      await secureStorage.write(key: "saved_email", value: email);
+      await secureStorage.write(key: "saved_passcode", value: passcode);
+
+      debugPrint("Credentials saved securely to device.");
+    } catch (e) {
+      debugPrint("Secure storage save failed: $e");
+    }
+  }
 
   /// -------------------------------------------------
   /// API: Validate Login Credentials
@@ -51,18 +68,21 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   /// -------------------------------------------------
-  /// Save Login Credentials
+  /// Save Login Credentials Locally
   /// -------------------------------------------------
   Future<void> saveLoginData(
     int userId,
-    String email,
+    String userEmail,
     String username,
     String role,
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // Save encrypted credentials locally
+    await _savePasswordSecurely(email.text, password.text);
+
     await prefs.setInt("userId", userId);
-    await prefs.setString("email", email);
+    await prefs.setString("email", userEmail);
     await prefs.setString("username", username);
     await prefs.setString("role", role);
     await prefs.setBool("loggedIn", true);
@@ -142,12 +162,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  // --------------------------------------------------
+  // UI (unchanged)
+  // --------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          /// Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -158,7 +180,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          /// Background Blobs
           Positioned(
             top: -60,
             right: -40,
@@ -170,7 +191,6 @@ class _LoginPageState extends State<LoginPage> {
             child: _blob(250, Colors.blueAccent),
           ),
 
-          /// Login Box
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -178,90 +198,7 @@ class _LoginPageState extends State<LoginPage> {
                 borderRadius: BorderRadius.circular(28),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                      color: Colors.white.withOpacity(0.1),
-                    ),
-
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset("assets/images/ew.png", height: 80),
-                        const SizedBox(height: 20),
-
-                        Text(
-                          "Please Login to continue",
-                          style: TextStyle(
-                            color: Colors.black.withOpacity(0.8),
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        _glassTextField(
-                          controller: email,
-                          hint: "Email",
-                          icon: Icons.email,
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        const SizedBox(height: 16),
-
-                        _glassTextField(
-                          controller: password,
-                          hint: "Phone Passcode",
-                          icon: Icons.lock,
-                          obscure: !_showPassword,
-                          keyboardType: TextInputType.number,
-                          isPasswordField: true,
-                          showPassword: _showPassword,
-                          onTogglePassword: () {
-                            setState(() => _showPassword = !_showPassword);
-                          },
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _validateAndLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.2),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color.fromARGB(255, 93, 12, 193),
-                                      ),
-                                    ),
-                                  )
-                                : const Text(
-                                    "Login",
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      color: Color.fromARGB(255, 93, 12, 193),
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: _loginBox(),
                 ),
               ),
             ),
@@ -271,7 +208,90 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Glass Effect TextField
+  Widget _loginBox() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
+        color: Colors.white.withOpacity(0.1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset("assets/images/ew.png", height: 80),
+          const SizedBox(height: 20),
+          Text(
+            "Please Login to continue",
+            style: TextStyle(
+              color: Colors.black.withOpacity(0.8),
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _glassTextField(
+            controller: email,
+            hint: "Email",
+            icon: Icons.email,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+          _glassTextField(
+            controller: password,
+            hint: "Phone Passcode",
+            icon: Icons.lock,
+            obscure: !_showPassword,
+            keyboardType: TextInputType.number,
+            isPasswordField: true,
+            showPassword: _showPassword,
+            onTogglePassword: () {
+              setState(() => _showPassword = !_showPassword);
+            },
+          ),
+          const SizedBox(height: 24),
+          _loginButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _loginButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _validateAndLogin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white.withOpacity(0.2),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Color.fromARGB(255, 93, 12, 193),
+                  ),
+                ),
+              )
+            : const Text(
+                "Login",
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Color.fromARGB(255, 93, 12, 193),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _glassTextField({
     required TextEditingController controller,
     required String hint,
@@ -301,7 +321,6 @@ class _LoginPageState extends State<LoginPage> {
         decoration: InputDecoration(
           counterText: "",
           prefixIcon: Icon(icon, color: Colors.white),
-
           suffixIcon: isPasswordField
               ? IconButton(
                   icon: Icon(
@@ -311,7 +330,6 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: onTogglePassword,
                 )
               : null,
-
           hintText: hint,
           hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
           border: InputBorder.none,
@@ -321,7 +339,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Decorative Background Blob
   Widget _blob(double size, Color color) {
     return Container(
       width: size,

@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-// import '../services/location_service.dart';
-
 import 'package:efficient_works/config/constants.dart';
 
 class RestaurantService {
+  // GET all restaurants (example)
   static Future<List<dynamic>> getRestaurants() async {
-    final res = await http.get(Uri.parse(" ${AppConfig.baseUrl}/restaurants"));
+    final res = await http.get(Uri.parse("${AppConfig.baseUrl}/restaurants"));
     return res.statusCode == 200 ? jsonDecode(res.body) : [];
   }
 
+  // ADD restaurant (POST)
   static Future<bool> addRestaurant(
     int userId,
     String name,
@@ -18,47 +18,67 @@ class RestaurantService {
     String contact,
     String location,
     String latitude,
-    String longitude,
+    String longitude, {
     String? email,
-    String? product,
+    String? visitType,
     String? posMulti,
     String? cost,
     String? discount,
     String? balance,
     String? paymentMethod,
-    String? comment,
+    String? paymentDetails, // JSON or Settled
+    String? toPay,
+    String? amountPaid,
     String? closedReason,
-  ) async {
+    String? comment,
+  }) async {
+    final body = {
+      "user_id": userId,
+      "name": name,
+      "res_type": resType,
+      "phone": phone,
+      "contact": contact,
+      "location": location,
+      "latitude": latitude,
+      "longitude": longitude,
+
+      "email": email,
+      "product": visitType,
+      "pos_multi": posMulti,
+      "cost": cost,
+      "discount": discount,
+
+      "to_pay": toPay,
+      "amount_paid": amountPaid,
+      "balance": balance,
+
+      "payment_method": paymentMethod,
+
+      // IMPORTANT: Use exact DB column
+      "payment_detials": paymentDetails,
+
+      "closed_reason": closedReason,
+      "comment": comment,
+    };
+
+    // Remove null or empty
+    body.removeWhere(
+      (key, value) => value == null || value.toString().trim().isEmpty,
+    );
+
     final res = await http.post(
       Uri.parse("${AppConfig.baseUrl}/restaurants"),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "user_id": userId,
-        "name": name,
-        "res_type": resType,
-        "phone": phone,
-        "contact": contact,
-        "location": location,
-        "latitude": latitude,
-        "longitude": longitude,
-
-        "email": email,
-        "product": product,
-        "pos_multi": posMulti,
-        "cost": cost,
-        "discount": discount,
-        "balance": balance, // ✔ correct position
-        "payment_method": paymentMethod, // ✔ correct position
-        "comment": comment,
-        "closed_reason": closedReason,
-      }),
+      body: jsonEncode(body),
     );
+
+    print("SENDING JSON: ${jsonEncode(body)}");
+    print("RESPONSE: ${res.body}");
 
     return res.statusCode == 201;
   }
 
-  // restaurant_service.dart
-
+  // UPDATE restaurant (PUT). Includes payment fields.
   static Future<bool> updateRestaurant(
     int id,
     String name,
@@ -69,50 +89,68 @@ class RestaurantService {
     String latitude,
     String longitude, {
     String? email,
-    String? product,
+    String? visitType,
     String? posMulti,
     String? cost,
     String? discount,
     String? balance,
-    String? paymentMethod,
-    String? comment,
+    String? toPay,
+    String? amount,
+    String? paymentDetails, // <-- MUST map to payment_detials
     String? closedReason,
-    String? savedDate, // NEW FIELD
   }) async {
-    try {
-      final res = await http.put(
-        Uri.parse("${AppConfig.baseUrl}/restaurants/$id"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "name": name,
-          "res_type": resType,
-          "phone": phone,
-          "contact": contact,
-          "location": location,
-          "latitude": latitude,
-          "longitude": longitude,
+    final url = "${AppConfig.baseUrl}/restaurant/$id";
 
-          // ADD THESE FIELDS (same as addRestaurant)
-          "email": email,
-          "product": product,
-          "pos_multi": posMulti,
-          "cost": cost,
-          "discount": discount,
-          "balance": balance,
-          "payment_method": paymentMethod,
-          "comment": comment,
-          "closed_reason": closedReason,
+    Map<String, dynamic> body;
 
-          // NEW FIELD
-          "saved_date": savedDate,
-        }),
-      );
-
-      return res.statusCode == 200;
-    } catch (e) {
-      print("ERROR → updateRestaurant(): $e");
-      return false;
+    if (resType == "conversion") {
+      body = {
+        "name": name,
+        "email": email,
+        "product": visitType,
+        "pos_multi": posMulti,
+        "cost": cost,
+        "discount": discount,
+        "balance": balance,
+        "to_pay": toPay,
+        "amount_paid": amount,
+        "payment_detials": paymentDetails, // <-- EXACT MATCH
+        "contact": contact,
+        "phone": phone,
+        "location": location,
+        "latitude": latitude,
+        "longitude": longitude,
+        "res_type": "conversion",
+      };
+    } else {
+      body = {"closed_reason": closedReason, "res_type": "closed"};
     }
+
+    final res = await http.put(
+      Uri.parse(url),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(body),
+    );
+
+    return res.statusCode == 200;
+  }
+
+  // Convenience: update payments only (optional). PUT /restaurants/:id/payments (implement backend if using)
+  static Future<bool> updatePayments(
+    int id,
+    String paymentDetails,
+    String toPay,
+    String amount,
+  ) async {
+    final body = {"to_pay": toPay, "amount": amount};
+    final res = await http.put(
+      Uri.parse(
+        "${AppConfig.baseUrl}/restaurants/$id",
+      ), // reuse same endpoint (server must accept)
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(body),
+    );
+    return res.statusCode == 200;
   }
 
   static Future<List<dynamic>> getRestaurantsByUser(int userId) async {
