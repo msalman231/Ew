@@ -67,13 +67,13 @@ class _HomePageState extends State<HomePage> {
     startLocationTracking();
   }
 
-  int _selectedIndex = 0;
+  // int _selectedIndex = 0;
 
-  void _onTabTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  // void _onTabTapped(int index) {
+  //   setState(() {
+  //     _selectedIndex = index;
+  //   });
+  // }
 
   Future<void> loadCheckState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -413,34 +413,34 @@ class _HomePageState extends State<HomePage> {
   // -------------------------------------------------------------
   // CHECK-IN / OUT BUTTON WIDGET
   // -------------------------------------------------------------
-  Widget _checkButton({
-    required String label,
-    required Color color,
-    required bool disabled,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Container(
-        width: 130,
-        height: 45,
-        decoration: BoxDecoration(
-          color: disabled ? Colors.grey.shade300 : color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: disabled ? Colors.black38 : Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _checkButton({
+  //   required String label,
+  //   required Color color,
+  //   required bool disabled,
+  //   required VoidCallback onTap,
+  // }) {
+  //   return GestureDetector(
+  //     onTap: disabled ? null : onTap,
+  //     child: Container(
+  //       width: 130,
+  //       height: 45,
+  //       decoration: BoxDecoration(
+  //         color: disabled ? Colors.grey.shade300 : color,
+  //         borderRadius: BorderRadius.circular(12),
+  //       ),
+  //       child: Center(
+  //         child: Text(
+  //           label,
+  //           style: TextStyle(
+  //             color: disabled ? Colors.black38 : Colors.white,
+  //             fontSize: 16,
+  //             fontWeight: FontWeight.bold,
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // ----------------------------------------------------------------------
   // VISIT BUTTON

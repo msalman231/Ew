@@ -43,6 +43,18 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   String? selectedPaymentMethod;
   DateTime? createdAt;
   bool isLoading = false;
+  String? paymentDateFromDB;
+
+  String _formatDate(dynamic date) {
+    if (date == null) return "N/A";
+
+    try {
+      final d = DateTime.parse(date.toString());
+      return "${d.day}/${d.month}/${d.year}";
+    } catch (_) {
+      return date.toString(); // fallback if bad format
+    }
+  }
 
   final Map<String, int> posPrices = {
     "Mobile Pos": 3000,
@@ -150,7 +162,10 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
     // If DB has amount_paid but no JSON deposit list, create single deposit
     if (deposits.isEmpty && amountPaidFromDB > 0) {
-      deposits.add({"amount": amountPaidFromDB, "date": _today()});
+      deposits.add({
+        "amount": amountPaidFromDB,
+        "date": paymentDateFromDB ?? _today(),
+      });
     }
 
     // Recalculate if needed
@@ -162,7 +177,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     if (d == null) return "";
     final parsed = double.tryParse(d.toString());
     if (parsed == null) return "";
-    return parsed.toStringAsFixed(0); // DB: 10.00 → UI: "10"
+    return parsed.toStringAsFixed(0);
   }
 
   Map<String, dynamic> _normalize(dynamic raw) {
@@ -247,8 +262,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
   // deposits
   String _today() {
-    final d = DateTime.now();
-    return "${d.day}-${d.month}-${d.year}";
+    return DateTime.now().toIso8601String().split("T").first;
   }
 
   void _addDeposit() {
@@ -274,6 +288,27 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     }
 
     setState(() {});
+  }
+
+  InputDecoration _dropdownDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.deepPurple, width: 1.5),
+      ),
+    );
   }
 
   double get _sumDeposits =>
@@ -424,7 +459,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Payment ${deposits.indexOf(p) + 1} - ${p["date"]}"),
+                  Text(
+                    "Payment ${deposits.indexOf(p) + 1} - ${_formatDate(p["date"])}",
+                  ),
                   Text(
                     "${p["amount"]}",
                     style: TextStyle(
@@ -620,21 +657,56 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
-              "Created At",
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
+            //-------------------------------------------------------------
+            // CREATED AT (READ-ONLY)
+            //-------------------------------------------------------------
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 4),
+                ],
               ),
-              child: Text(
-                createdAt == null
-                    ? "Not available"
-                    : "${createdAt!.day}-${createdAt!.month}-${createdAt!.year}",
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Created At",
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            createdAt == null
+                                ? "Not available"
+                                : "${createdAt!.day}/${createdAt!.month}/${createdAt!.year}",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                        Icon(
+                          Icons.event,
+                          size: 20,
+                          color: Colors.grey.shade700,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -655,34 +727,93 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                   children: [
                     _textField(emailCtrl, "Customer Email"),
                     const SizedBox(height: 12),
+                    // ---------------------------------------------------------------------
+                    // POS SECTION (Only for Restaurant)
+                    // ---------------------------------------------------------------------
                     if (selectedTopTab == "Restaurant") ...[
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: const Text(
-                          "POS Options",
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      ...posOptions
-                          .map(
-                            (p) => CheckboxListTile(
-                              title: Text(p),
-                              value: selectedPos.contains(p),
-                              onChanged: (ch) {
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Select POS",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 6),
+
+                          // POS DROPDOWN
+                          DropdownButtonFormField<String>(
+                            decoration: _dropdownDecoration("Select POS"),
+                            items: posOptions
+                                .map(
+                                  (p) => DropdownMenuItem<String>(
+                                    value: p,
+                                    child: Text(p),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null &&
+                                  !selectedPos.contains(value)) {
                                 setState(() {
-                                  if (ch == true)
-                                    selectedPos.add(p);
-                                  else
-                                    selectedPos.remove(p);
-                                  _recalculateCost();
+                                  selectedPos.add(value);
                                 });
-                              },
-                            ),
-                          )
-                          .toList(),
+                                _recalculateCost();
+                              }
+                            },
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // SELECTED POS TAGS
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: selectedPos.map((pos) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF061341),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      pos,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          selectedPos.remove(pos);
+                                        });
+                                        _recalculateCost();
+                                      },
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+
+                          const SizedBox(height: 12),
+                        ],
+                      ),
                       const SizedBox(height: 12),
                     ],
-                    const SizedBox(height: 12),
+
                     DropdownButtonFormField<String>(
                       decoration: const InputDecoration(
                         labelText: "Payment Method",

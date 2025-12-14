@@ -221,15 +221,6 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           Image.asset("assets/images/ew.png", height: 80),
           const SizedBox(height: 20),
-          Text(
-            "Please Login to continue",
-            style: TextStyle(
-              color: Colors.black.withOpacity(0.8),
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 24),
           _glassTextField(
             controller: email,
             hint: "Email",
