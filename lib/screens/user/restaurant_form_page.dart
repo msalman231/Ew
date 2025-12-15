@@ -1053,6 +1053,13 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       return false;
     }
 
+    // Convert discount % → decimal for backend
+    String discountForBackend = "";
+    if (discountCtrl.text.isNotEmpty) {
+      final p = double.tryParse(discountCtrl.text) ?? 0;
+      discountForBackend = (p / 100).toString(); // 5 → 0.05
+    }
+
     final loc = await LocationService.getLocationDetails();
     final addressToSend = useManualAddress ? manualAddress! : loc["address"];
 
@@ -1084,19 +1091,17 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       loc["longitude"].toString(),
 
       email: emailCtrl.text,
-      visitType: selectedTopTab,
+      product: selectedTopTab,
       posMulti: selectedPos.join(","),
+
       cost: costCtrl.text,
-      discount: discountCtrl.text,
+      discount: discountForBackend,
 
-      // Correct values
-      toPay: toPay.toString(), // original full price
-      amountPaid: totalPaid.toString(), // paid amount
-      balance: balance.toString(), // remaining balance
+      toPay: toPay.toString(),
+      amountPaid: totalPaid.toString(),
+      balance: balance.toString(),
 
-      paymentMethod: selectedPaymentMethod,
       paymentDetails: paymentDetails,
-
       closedReason: reasonCtrl.text,
     );
 

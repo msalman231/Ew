@@ -150,7 +150,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // LOAD AMOUNT PAID + BALANCE
     // -----------------------------
     final amountPaidFromDB = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
-    final balanceFromDB = double.tryParse(_coerce(r["balance"])) ?? 0;
+    // final balanceFromDB = double.tryParse(_coerce(r["balance"])) ?? 0;
 
     // -----------------------------
     // LOAD PAYMENT HISTORY
@@ -353,24 +353,26 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     if (restaurantType?.toLowerCase() == "conversion") {
       ok = await RestaurantService.updateRestaurant(
         r["id"],
-        nameCtrl.text,
-        "conversion", // backend requires lowercase
-        phoneCtrl.text,
-        contactCtrl.text,
-        fullAddress,
-        loc["latitude"].toString(),
-        loc["longitude"].toString(),
+        "conversion",
 
+        name: nameCtrl.text,
         email: emailCtrl.text,
-        visitType: selectedTopTab, // product
-        posMulti: selectedPos.join(","), // pos_multi
+        product: selectedTopTab,
+        posMulti: selectedPos.join(","),
+
         cost: costCtrl.text,
         discount: backendDiscount,
-        balance: balanceValue.toStringAsFixed(0),
         toPay: toPayValue.toStringAsFixed(0),
-        amount: amountPaid.toStringAsFixed(0),
+        amountPaid: amountPaid.toStringAsFixed(0),
+        balance: balanceValue.toStringAsFixed(0),
+
         paymentDetails: paymentDetialsPayload,
-        closedReason: null,
+
+        contact: contactCtrl.text,
+        phone: phoneCtrl.text,
+        location: fullAddress,
+        latitude: loc["latitude"].toString(),
+        longitude: loc["longitude"].toString(),
       );
     }
     // --------------------------------------------------------
@@ -379,14 +381,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     else if (restaurantType?.toLowerCase() == "closed") {
       ok = await RestaurantService.updateRestaurant(
         r["id"],
-        nameCtrl.text,
         "closed",
-        phoneCtrl.text,
-        contactCtrl.text,
-        fullAddress,
-        loc["latitude"].toString(),
-        loc["longitude"].toString(),
-
         closedReason: commentCtrl.text,
       );
     }

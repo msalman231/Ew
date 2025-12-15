@@ -20,51 +20,42 @@ class RestaurantService {
     String latitude,
     String longitude, {
     String? email,
-    String? visitType,
+    String? product,
     String? posMulti,
     String? cost,
     String? discount,
     String? balance,
-    String? paymentMethod,
-    String? paymentDetails, // JSON or Settled
     String? toPay,
     String? amountPaid,
+    String? paymentDetails,
     String? closedReason,
-    String? comment,
   }) async {
     final body = {
       "user_id": userId,
       "name": name,
-      "res_type": resType,
-      "phone": phone,
-      "contact": contact,
-      "location": location,
-      "latitude": latitude,
-      "longitude": longitude,
-
       "email": email,
-      "product": visitType,
+      "product": product,
       "pos_multi": posMulti,
+
       "cost": cost,
       "discount": discount,
-
       "to_pay": toPay,
       "amount_paid": amountPaid,
       "balance": balance,
 
-      "payment_method": paymentMethod,
-
-      // IMPORTANT: Use exact DB column
       "payment_detials": paymentDetails,
-
       "closed_reason": closedReason,
-      "comment": comment,
+
+      "res_type": resType.toLowerCase(),
+      "contact": contact,
+      "phone": phone,
+      "location": location,
+      "latitude": latitude,
+      "longitude": longitude,
     };
 
-    // Remove null or empty
-    body.removeWhere(
-      (key, value) => value == null || value.toString().trim().isEmpty,
-    );
+    // Remove null / empty values
+    body.removeWhere((k, v) => v == null || v.toString().trim().isEmpty);
 
     final res = await http.post(
       Uri.parse("${AppConfig.baseUrl}/restaurants"),
@@ -72,8 +63,8 @@ class RestaurantService {
       body: jsonEncode(body),
     );
 
-    print("SENDING JSON: ${jsonEncode(body)}");
-    print("RESPONSE: ${res.body}");
+    print("POST PAYLOAD => ${jsonEncode(body)}");
+    print("RESPONSE => ${res.body}");
 
     return res.statusCode == 201;
   }
@@ -81,56 +72,65 @@ class RestaurantService {
   // UPDATE restaurant (PUT). Includes payment fields.
   static Future<bool> updateRestaurant(
     int id,
-    String name,
-    String resType,
-    String phone,
-    String contact,
-    String location,
-    String latitude,
-    String longitude, {
+    String resType, {
+    String? name,
     String? email,
-    String? visitType,
+    String? product,
     String? posMulti,
     String? cost,
     String? discount,
-    String? balance,
     String? toPay,
-    String? amount,
-    String? paymentDetails, // <-- MUST map to payment_detials
+    String? amountPaid,
+    String? balance,
+    String? paymentDetails,
+    String? contact,
+    String? phone,
+    String? location,
+    String? latitude,
+    String? longitude,
     String? closedReason,
   }) async {
     final url = "${AppConfig.baseUrl}/restaurant/$id";
 
     Map<String, dynamic> body;
 
-    if (resType == "conversion") {
+    if (resType.toLowerCase() == "conversion") {
       body = {
         "name": name,
         "email": email,
-        "product": visitType,
+        "product": product,
         "pos_multi": posMulti,
+
         "cost": cost,
         "discount": discount,
-        "balance": balance,
         "to_pay": toPay,
-        "amount_paid": amount,
-        "payment_detials": paymentDetails, // <-- EXACT MATCH
+        "amount_paid": amountPaid,
+        "balance": balance,
+
+        "payment_detials": paymentDetails,
+
         "contact": contact,
         "phone": phone,
         "location": location,
         "latitude": latitude,
         "longitude": longitude,
+
         "res_type": "conversion",
       };
     } else {
       body = {"closed_reason": closedReason, "res_type": "closed"};
     }
 
+    body.removeWhere((k, v) => v == null || v.toString().trim().isEmpty);
+
     final res = await http.put(
       Uri.parse(url),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode(body),
     );
+
+    print("UPDATE PAYLOAD => ${jsonEncode(body)}");
+    print("RESPONSE => ${res.body}");
 
     return res.statusCode == 200;
   }
