@@ -37,6 +37,8 @@ dependencies:
   flutter_credential_manager: ^2.0.10
   flutter_secure_storage: ^9.0.0
 
+  flutter_svg: ^2.0.10
+
   fl_chart: ^0.66.0
 
   geolocator: ^12.0.0
@@ -68,20 +70,18 @@ dev_dependencies:
 flutter:
   assets:
     - assets/images/ew.png
-    - assets/images/arrow.png
-    - assets/images/user_avatar.png
-    - assets/images/shop.png
-    - assets/images/edit.png
-    - assets/images/home.png
-    - assets/images/home_filled.png
-    - assets/images/leads.png
-    - assets/images/leads_filled.png
-    - assets/images/calendar.png
-    - assets/images/search.png
-    - assets/images/setting.png
-    - assets/images/down_arrow.png
-    - assets/images/restaurant.png
-    - assets/images/retail.png
+
+    - assets/icons/home.svg
+    - assets/icons/leads.svg
+    - assets/icons/calendar.svg
+    - assets/icons/edit.svg
+    - assets/icons/restaurant.svg
+    - assets/icons/retail.svg
+    - assets/icons/status.svg
+    - assets/icons/up_arrow.svg
+    - assets/icons/down_arrow.svg
+    - assets/icons/search.svg
+    - assets/icons/user_avatar.svg
 
     
 

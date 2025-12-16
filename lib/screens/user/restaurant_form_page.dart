@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
 import 'dart:convert';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 
 class RestaurantFormPage extends StatefulWidget {
   final int userId;
@@ -173,6 +175,68 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     }
   }
 
+  Widget _buildInstallationDateUI() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Installation Details",
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Installation Date",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+
+              GestureDetector(
+                onTap: _pickInstallationDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "${installationDate.day}/${installationDate.month}/${installationDate.year}",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 20,
+                        color: Colors.grey.shade700,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPaymentSection() {
     double toPayTotal = double.tryParse(balanceCtrl.text) ?? 0;
     double totalPaid = deposits.fold(0.0, (sum, p) => sum + p["amount"]);
@@ -313,34 +377,34 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     );
   }
 
-  Widget _buildFullSettlementContainer() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      margin: const EdgeInsets.only(top: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Settled",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          Text(
-            "${balanceCtrl.text}", // NO £ SYMBOL
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildFullSettlementContainer() {
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  //     margin: const EdgeInsets.only(top: 10),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(14),
+  //       border: Border.all(color: Colors.grey.shade300),
+  //     ),
+  //     child: Row(
+  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //       children: [
+  //         const Text(
+  //           "Settled",
+  //           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  //         ),
+  //         Text(
+  //           "${balanceCtrl.text}", // NO £ SYMBOL
+  //           style: const TextStyle(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.green,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildDepositContainer() {
     return Container(
@@ -508,8 +572,8 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Image.asset(
-                                "assets/images/restaurant.png",
+                              SvgPicture.asset(
+                                "assets/icons/restaurant.svg",
                                 height: 20,
                                 width: 20,
                                 color: selectedTopTab == "Restaurant"
@@ -563,8 +627,8 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Image.asset(
-                                "assets/images/retail.png",
+                              SvgPicture.asset(
+                                "assets/icons/retail.svg",
                                 height: 20,
                                 width: 20,
                                 color: selectedTopTab == "Retail"
@@ -728,7 +792,10 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
             const SizedBox(height: 20),
 
             if (restaurantType == "Conversion") _buildConversionFormUI(),
+
             if (restaurantType == "Closed") _buildClosedReasonUI(),
+
+            if (restaurantType == "Installation") _buildInstallationDateUI(),
 
             const SizedBox(height: 30),
 
@@ -749,7 +816,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                         setState(() => isLoading = false);
 
                         if (ok) {
-                          Navigator.pop(context);
+                          Navigator.pop(context, true); // ✅ IMPORTANT
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -837,8 +904,33 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
         const SizedBox(height: 10),
 
         _sectionCard([
-          _styledTextField(emailCtrl, "Customer Email"),
-          const SizedBox(height: 12),
+          TextFormField(
+            controller: emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return "Email is required";
+              }
+
+              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+
+              if (!emailRegex.hasMatch(value)) {
+                return "Enter a valid email address";
+              }
+
+              return null;
+            },
+            decoration: InputDecoration(
+              hintText: "Customer Email",
+              filled: true,
+              fillColor: Colors.grey.shade200,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
 
           // ---------------------------------------------------------------------
           // POS SECTION (Only for Restaurant)
@@ -943,7 +1035,11 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
           TextField(
             controller: discountCtrl,
             keyboardType: TextInputType.number,
-            onChanged: (v) => _recalculateToPay(),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(2),
+            ],
+            onChanged: (_) => _recalculateToPay(),
             decoration: InputDecoration(
               hintText: "Discount %",
               filled: true,
@@ -1060,8 +1156,23 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       discountForBackend = (p / 100).toString(); // 5 → 0.05
     }
 
-    final loc = await LocationService.getLocationDetails();
-    final addressToSend = useManualAddress ? manualAddress! : loc["address"];
+    Map<String, dynamic>? loc;
+    String addressToSend;
+    String? latitude;
+    String? longitude;
+
+    if (useManualAddress) {
+      // Manual address → NO GPS
+      addressToSend = manualAddress!;
+      latitude = null;
+      longitude = null;
+    } else {
+      // Auto location → GPS
+      loc = await LocationService.getLocationDetails();
+      addressToSend = loc["address"];
+      latitude = loc["latitude"]?.toString();
+      longitude = loc["longitude"]?.toString();
+    }
 
     // ---------------------------
     // PAYMENT CALCULATIONS
@@ -1086,9 +1197,9 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       restaurantType ?? "",
       phoneCtrl.text,
       contactCtrl.text,
-      addressToSend ?? "",
-      loc["latitude"].toString(),
-      loc["longitude"].toString(),
+      addressToSend,
+      latitude,
+      longitude,
 
       email: emailCtrl.text,
       product: selectedTopTab,
@@ -1218,47 +1329,161 @@ class ManualAddressPopup extends StatefulWidget {
 }
 
 class _ManualAddressPopupState extends State<ManualAddressPopup> {
-  final addressCtrl = TextEditingController();
+  final doorCtrl = TextEditingController();
+  final streetCtrl = TextEditingController();
   final areaCtrl = TextEditingController();
   final cityCtrl = TextEditingController();
+  final stateCtrl = TextEditingController(text: "Tamil Nadu");
+  final pincodeCtrl = TextEditingController();
+
+  void _save() {
+    if (doorCtrl.text.trim().isEmpty ||
+        streetCtrl.text.trim().isEmpty ||
+        areaCtrl.text.trim().isEmpty ||
+        cityCtrl.text.trim().isEmpty ||
+        pincodeCtrl.text.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please fill all address fields correctly"),
+        ),
+      );
+      return;
+    }
+
+    final fullAddress =
+        "${doorCtrl.text}, "
+        "${streetCtrl.text}, "
+        "${areaCtrl.text}, "
+        "${cityCtrl.text}, "
+        "${stateCtrl.text} "
+        "${pincodeCtrl.text}";
+
+    widget.onSave(fullAddress.trim());
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Enter Address"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: addressCtrl,
-            decoration: const InputDecoration(labelText: "Address"),
-          ),
-          TextField(
-            controller: areaCtrl,
-            decoration: const InputDecoration(labelText: "Area"),
-          ),
-          TextField(
-            controller: cityCtrl,
-            decoration: const InputDecoration(labelText: "City"),
-          ),
-        ],
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ---------------- TITLE ----------------
+            const Text(
+              "Add Address Manually",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+
+            // ---------------- FORM CARD ----------------
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 6),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _field(doorCtrl, "Door / Flat No"),
+                  _field(streetCtrl, "Street / Road Name"),
+                  _field(areaCtrl, "Area / Nagar"),
+                  _field(cityCtrl, "City"),
+                  _field(stateCtrl, "State"),
+                  _field(
+                    pincodeCtrl,
+                    "Pincode",
+                    keyboard: TextInputType.number,
+                    maxLen: 6,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ---------------- ACTION BUTTONS ----------------
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade400),
+                    ),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      "Save Address",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel"),
+    );
+  }
+
+  // ---------------- INPUT FIELD STYLE ----------------
+  Widget _field(
+    TextEditingController ctrl,
+    String label, {
+    TextInputType keyboard = TextInputType.text,
+    int? maxLen,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextField(
+        controller: ctrl,
+        keyboardType: keyboard,
+        maxLength: maxLen,
+        decoration: InputDecoration(
+          counterText: "",
+          labelText: label,
+          filled: true,
+          fillColor: Colors.grey.shade200,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
         ),
-        ElevatedButton(
-          onPressed: () {
-            final fullAddress =
-                "${addressCtrl.text}, ${areaCtrl.text}, ${cityCtrl.text}"
-                    .trim();
-            widget.onSave(fullAddress);
-            Navigator.pop(context);
-          },
-          child: const Text("Save"),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -72,6 +72,27 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     "Conversion",
   ];
 
+  String _mapResTypeToUI(String? resType) {
+    if (resType == null) return "";
+
+    switch (resType.toLowerCase()) {
+      case "leads":
+        return "Leads";
+      case "follows":
+        return "Follows";
+      case "future_follows":
+        return "Future Follows";
+      case "closed":
+        return "Closed";
+      case "installation":
+        return "Installation";
+      case "conversion":
+        return "Conversion";
+      default:
+        return "";
+    }
+  }
+
   final List<String> posOptions = ["Mobile Pos", "Web Pos", "Waiter App"];
   final List<String> paymentOptions = ["Card", "Cash", "Online-UPI"];
 
@@ -98,13 +119,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     );
 
     // Status
-    restaurantType = r["res_type"];
-
-    if (restaurantType != null) {
-      restaurantType =
-          restaurantType![0].toUpperCase() +
-          restaurantType!.substring(1).toLowerCase();
-    }
+    restaurantType = _mapResTypeToUI(r["res_type"]);
 
     // Visit type / Retail / Restaurant
     selectedTopTab = (r["product"]?.toString() ?? "Restaurant");
@@ -139,7 +154,14 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     }
 
     // Payment Method (saved as simple text in DB)
-    selectedPaymentMethod = r["payment_detials"];
+    final pm = r["payment_detials"]?.toString();
+
+    if (pm == "Card" || pm == "Cash" || pm == "Online-UPI") {
+      selectedPaymentMethod = pm;
+    } else {
+      // Covers: "Settled", null, empty, garbage
+      selectedPaymentMethod = null;
+    }
 
     // Created Date
     if (r["created_at"] != null) {
@@ -169,6 +191,11 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // Recalculate if needed
     if (costCtrl.text.isEmpty) _recalculateCost();
     if (toPayCtrl.text.isEmpty) _recalculateToPay();
+
+    // -----------------------------
+    // LOAD CLOSED REASON (IMPORTANT)
+    // -----------------------------
+    commentCtrl.text = r["closed_reason"]?.toString() ?? "";
   }
 
   String _displayDiscount(dynamic d) {
@@ -429,13 +456,25 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                   setState(() {});
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal.shade700,
+                  backgroundColor: const Color(0xFF0F766E), // modern teal
+                  foregroundColor: Colors.white, // text & icon color
+                  elevation: 2,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                    horizontal: 26,
                     vertical: 14,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text("Pay"),
+                child: const Text(
+                  "Pay",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
               ),
             ],
           ),
@@ -443,20 +482,52 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
           const SizedBox(height: 20),
 
           // Payment History
-          ...deposits.map((p) {
+          ...deposits.asMap().entries.map((entry) {
+            final index = entry.key;
+            final p = entry.value;
+
             return Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    "Payment ${deposits.indexOf(p) + 1} - ${_formatDate(p["date"])}",
+                  // LEFT SIDE (Payment + Date)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Payment : ${index + 1}",
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.teal,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatDate(p["date"]),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
                   ),
+
+                  // RIGHT SIDE (AMOUNT)
                   Text(
                     "${p["amount"]}",
                     style: TextStyle(
@@ -468,7 +539,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                 ],
               ),
             );
-          }),
+          }).toList(),
 
           const SizedBox(height: 10),
 
@@ -622,7 +693,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                   labelText: "Select Status",
                   border: OutlineInputBorder(),
                 ),
-                value: restaurantType,
+                value: restaurantTypes.contains(restaurantType)
+                    ? restaurantType
+                    : null,
                 items: restaurantTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
@@ -814,8 +887,10 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                         labelText: "Payment Method",
                         border: OutlineInputBorder(),
                       ),
-                      value: selectedPaymentMethod,
-                      items: ["Card", "Cash", "Online-UPI"]
+                      value: paymentOptions.contains(selectedPaymentMethod)
+                          ? selectedPaymentMethod
+                          : null,
+                      items: paymentOptions
                           .map(
                             (p) => DropdownMenuItem(value: p, child: Text(p)),
                           )
@@ -823,6 +898,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                       onChanged: (v) =>
                           setState(() => selectedPaymentMethod = v),
                     ),
+
                     const SizedBox(height: 12),
                     TextField(
                       controller: costCtrl,
@@ -864,6 +940,33 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               ),
             ],
 
+            // --------------------------------------------------
+            // CLOSED REASON SECTION (EDIT MODE)
+            // --------------------------------------------------
+            if (restaurantType?.toLowerCase() == "closed") ...[
+              const SizedBox(height: 18),
+              const Text(
+                "Closed - Reason",
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: "Enter reason for closing",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -880,6 +983,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: Colors.white,
                         ),
                       ),
               ),

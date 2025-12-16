@@ -25,18 +25,43 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _showPassword = false;
   bool _isLoading = false;
+  bool _rememberMe = false;
 
   /// -------------------------------------------------
   /// Save credentials securely (local encrypted storage)
   /// -------------------------------------------------
-  Future<void> _savePasswordSecurely(String email, String passcode) async {
-    try {
-      await secureStorage.write(key: "saved_email", value: email);
-      await secureStorage.write(key: "saved_passcode", value: passcode);
+  // Future<void> _savePasswordSecurely(String email, String passcode) async {
+  //   try {
+  //     await secureStorage.write(key: "saved_email", value: email);
+  //     await secureStorage.write(key: "saved_passcode", value: passcode);
 
-      debugPrint("Credentials saved securely to device.");
+  //     debugPrint("Credentials saved securely to device.");
+  //   } catch (e) {
+  //     debugPrint("Secure storage save failed: $e");
+  //   }
+  // }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final savedEmail = await secureStorage.read(key: "saved_email");
+      final savedPasscode = await secureStorage.read(key: "saved_passcode");
+      final remember = await secureStorage.read(key: "remember_me");
+
+      if (remember == "true" && savedEmail != null && savedPasscode != null) {
+        setState(() {
+          email.text = savedEmail;
+          password.text = savedPasscode;
+          _rememberMe = true;
+        });
+      }
     } catch (e) {
-      debugPrint("Secure storage save failed: $e");
+      debugPrint("Failed to load saved credentials: $e");
     }
   }
 
@@ -78,14 +103,36 @@ class _LoginPageState extends State<LoginPage> {
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Save encrypted credentials locally
-    await _savePasswordSecurely(email.text, password.text);
+    if (_rememberMe) {
+      await secureStorage.write(key: "saved_email", value: email.text);
+      await secureStorage.write(key: "saved_passcode", value: password.text);
+      await secureStorage.write(key: "remember_me", value: "true");
+    } else {
+      await secureStorage.delete(key: "saved_email");
+      await secureStorage.delete(key: "saved_passcode");
+      await secureStorage.write(key: "remember_me", value: "false");
+    }
 
     await prefs.setInt("userId", userId);
     await prefs.setString("email", userEmail);
     await prefs.setString("username", username);
     await prefs.setString("role", role);
     await prefs.setBool("loggedIn", true);
+  }
+
+  void _forgotPassword() {
+    if (email.text.isEmpty) {
+      _showError("Please enter your email first");
+      return;
+    }
+
+    // Hook API here later
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Password reset instructions sent"),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   /// -------------------------------------------------
@@ -244,6 +291,29 @@ class _LoginPageState extends State<LoginPage> {
             },
           ),
           const SizedBox(height: 24),
+          Row(
+            children: [
+              Checkbox(
+                value: _rememberMe,
+                activeColor: const Color.fromARGB(255, 93, 12, 193),
+                onChanged: (value) {
+                  setState(() => _rememberMe = value ?? false);
+                },
+              ),
+              const Text("Remember Me", style: TextStyle(color: Colors.white)),
+              const Spacer(),
+              TextButton(
+                onPressed: _forgotPassword,
+                child: const Text(
+                  "Forgot Password?",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
           _loginButton(),
         ],
       ),

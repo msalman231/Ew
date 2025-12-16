@@ -11,8 +11,8 @@ class RestaurantService {
     String phone,
     String contact,
     String location,
-    String latitude,
-    String longitude, {
+    String? latitude,
+    String? longitude, {
     String? email,
     String? product,
     String? posMulti,
@@ -90,6 +90,7 @@ class RestaurantService {
 
     if (resType.toLowerCase() == "conversion") {
       body = {
+        "id": id,
         "name": name,
         "email": email,
         "product": product,

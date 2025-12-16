@@ -5,6 +5,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../services/restaurant_service.dart';
 import '../../services/attendance_service.dart';
 import 'restaurant_edit.dart';
@@ -30,6 +32,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   StreamSubscription<Position>? positionStream;
   List<dynamic> filteredRestaurants = [];
+  List<dynamic> allRestaurants = [];
 
   String? checkInTime;
   String? checkOutTime;
@@ -120,7 +123,8 @@ class _HomePageState extends State<HomePage> {
     final list = await RestaurantService.getRestaurantsByUser(widget.userId);
 
     setState(() {
-      filteredRestaurants = list.take(2).toList();
+      allRestaurants = list;
+      filteredRestaurants = list;
     });
   }
 
@@ -247,7 +251,15 @@ class _HomePageState extends State<HomePage> {
           CircleAvatar(
             radius: 26,
             backgroundColor: Colors.grey.shade200,
-            backgroundImage: AssetImage("assets/images/user_avatar.png"),
+            child: SvgPicture.asset(
+              "assets/icons/user_avatar.svg",
+              width: 26,
+              height: 26,
+              // colorFilter: ColorFilter.mode(
+              //   Colors.grey.shade700,
+              //   BlendMode.srcIn,
+              // ),
+            ),
           ),
         ],
       ),
@@ -447,8 +459,8 @@ class _HomePageState extends State<HomePage> {
   // ----------------------------------------------------------------------
   Widget _visitButton() {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final bool? added = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => RestaurantFormPage(
@@ -458,18 +470,24 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         );
+
+        if (added == true) {
+          await loadRestaurants(); // 🔥 refresh immediately
+        }
       },
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16),
-        padding: EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.teal, Colors.greenAccent]),
+          gradient: const LinearGradient(
+            colors: [Colors.teal, Colors.greenAccent],
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
+            const Text(
               "Visit",
               style: TextStyle(
                 color: Colors.white,
@@ -481,14 +499,11 @@ class _HomePageState extends State<HomePage> {
               radius: 25,
               backgroundColor: Colors.white,
               child: Padding(
-                padding: EdgeInsets.all(
-                  6,
-                ), // reduce padding to increase image size
-                child: Image.asset(
-                  "assets/images/arrow.png",
+                padding: const EdgeInsets.all(6),
+                child: SvgPicture.asset(
+                  "assets/icons/up_arrow.svg",
                   width: 20,
                   height: 20,
-                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -518,7 +533,10 @@ class _HomePageState extends State<HomePage> {
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
-      itemCount: filteredRestaurants.length,
+      itemCount: filteredRestaurants.length > 2
+          ? 2
+          : filteredRestaurants.length,
+
       itemBuilder: (context, i) {
         final r = filteredRestaurants[i];
 
@@ -550,8 +568,8 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.teal.shade50,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Image.asset(
-                      "assets/images/shop.png",
+                    child: SvgPicture.asset(
+                      "assets/icons/restaurant.svg",
                       height: 28,
                       width: 28,
                       color: Colors.teal,
@@ -589,11 +607,11 @@ class _HomePageState extends State<HomePage> {
                         color: Colors.teal.shade50,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Image.asset(
-                        "assets/images/edit.png",
+                      child: SvgPicture.asset(
+                        "assets/icons/edit.svg",
                         height: 22,
                         width: 22,
-                        color: Colors.teal, // remove if image has its own color
+                        color: Colors.teal,
                       ),
                     ),
                   ),
@@ -674,19 +692,35 @@ class _HomePageState extends State<HomePage> {
 
       items: [
         BottomNavigationBarItem(
-          icon: Image.asset("assets/images/home.png", width: 28),
-          activeIcon: Image.asset(
-            "assets/images/home_filled.png", // filled icon
-            width: 30,
+          icon: SvgPicture.asset(
+            "assets/icons/home.svg",
+            width: 26,
+            colorFilter: ColorFilter.mode(
+              Colors.grey.shade600,
+              BlendMode.srcIn,
+            ),
+          ),
+          activeIcon: SvgPicture.asset(
+            "assets/icons/home.svg",
+            width: 28,
+            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
           ),
           label: "Home",
         ),
 
         BottomNavigationBarItem(
-          icon: Image.asset("assets/images/leads.png", width: 28),
-          activeIcon: Image.asset(
-            "assets/images/leads_filled.png", // filled icon
-            width: 30,
+          icon: SvgPicture.asset(
+            "assets/icons/leads.svg",
+            width: 26,
+            colorFilter: ColorFilter.mode(
+              Colors.grey.shade600,
+              BlendMode.srcIn,
+            ),
+          ),
+          activeIcon: SvgPicture.asset(
+            "assets/icons/leads.svg",
+            width: 28,
+            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
           ),
           label: "My Leads",
         ),

@@ -3,6 +3,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/restaurant_service.dart';
 import 'restaurant_edit.dart';
 
+import 'package:flutter_svg/flutter_svg.dart';
+
 class RestaurantListPage extends StatefulWidget {
   final int userId;
 
@@ -153,7 +155,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       ),
       child: Row(
         children: [
-          Image.asset("assets/images/search.png", width: 22, height: 22),
+          SvgPicture.asset("assets/icons/search.svg", width: 22, height: 22),
           SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -189,15 +191,15 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedDate,
-          icon: Image.asset("assets/images/down_arrow.png", width: 18),
+          icon: SvgPicture.asset("assets/icons/down_arrow.svg", width: 18),
 
           // Selected item display ONLY
           selectedItemBuilder: (_) {
             return dateOptions.map((e) {
               return Row(
                 children: [
-                  Image.asset(
-                    "assets/images/calendar.png",
+                  SvgPicture.asset(
+                    "assets/icons/calendar.svg",
                     width: 20,
                     height: 20,
                   ),
@@ -249,7 +251,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedStatus,
-          icon: Image.asset("assets/images/down_arrow.png", width: 18),
+          icon: SvgPicture.asset("assets/icons/down_arrow.svg", width: 18),
 
           // Selected item shows icon if it is the selected item
           selectedItemBuilder: (_) {
@@ -258,8 +260,8 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                 children: [
                   // Show icon ONLY for the currently selected status
                   if (selectedStatus == status)
-                    Image.asset(
-                      "assets/images/setting.png",
+                    SvgPicture.asset(
+                      "assets/icons/status.svg",
                       width: 20,
                       height: 20,
                     ),
@@ -318,8 +320,8 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                   color: Colors.teal.shade50,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Image.asset(
-                  "assets/images/shop.png",
+                child: SvgPicture.asset(
+                  "assets/icons/restaurant.svg",
                   width: 28,
                   height: 28,
                   color: Colors.teal,
@@ -348,8 +350,8 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                     color: Colors.teal.shade50,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Image.asset(
-                    "assets/images/edit.png",
+                  child: SvgPicture.asset(
+                    "assets/icons/edit.svg",
                     width: 20,
                     height: 20,
                     color: Colors.teal,
@@ -381,13 +383,31 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
               Expanded(
                 child: TextButton.icon(
                   onPressed: () {
-                    final uri = Uri.parse(
-                      "https://www.google.com/maps/dir/?api=1&destination=${r['latitude']},${r['longitude']}",
-                    );
+                    final lat = r["latitude"];
+                    final lng = r["longitude"];
+                    final address = r["location"];
+
+                    Uri uri;
+
+                    if (lat != null &&
+                        lng != null &&
+                        lat.toString().isNotEmpty) {
+                      // GPS-based navigation
+                      uri = Uri.parse(
+                        "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
+                      );
+                    } else {
+                      // Manual address-based navigation
+                      final encodedAddress = Uri.encodeComponent(address ?? "");
+                      uri = Uri.parse(
+                        "https://www.google.com/maps/dir/?api=1&destination=$encodedAddress",
+                      );
+                    }
+
                     launchUrl(uri, mode: LaunchMode.externalApplication);
                   },
-                  icon: Icon(Icons.location_on, color: Colors.teal),
-                  label: Text(
+                  icon: const Icon(Icons.location_on, color: Colors.teal),
+                  label: const Text(
                     "Direction",
                     style: TextStyle(color: Colors.teal),
                   ),
@@ -449,22 +469,47 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   // ----------------------------------------------------------------------
   Widget _bottomNavBar() {
     return BottomNavigationBar(
-      currentIndex: 1, // current page is "My Leads"
+      currentIndex: 1,
       selectedItemColor: Colors.teal,
       unselectedItemColor: Colors.grey.shade600,
       showUnselectedLabels: true,
+
       onTap: (index) {
         if (index == 0) Navigator.pop(context);
       },
+
       items: [
         BottomNavigationBarItem(
-          icon: Image.asset("assets/images/home.png", width: 28),
-          activeIcon: Image.asset("assets/images/home_filled.png", width: 30),
+          icon: SvgPicture.asset(
+            "assets/icons/home.svg",
+            width: 26,
+            colorFilter: ColorFilter.mode(
+              Colors.grey.shade600,
+              BlendMode.srcIn,
+            ),
+          ),
+          activeIcon: SvgPicture.asset(
+            "assets/icons/home.svg",
+            width: 28,
+            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
+          ),
           label: "Home",
         ),
+
         BottomNavigationBarItem(
-          icon: Image.asset("assets/images/leads.png", width: 28),
-          activeIcon: Image.asset("assets/images/leads_filled.png", width: 30),
+          icon: SvgPicture.asset(
+            "assets/icons/leads.svg",
+            width: 26,
+            colorFilter: ColorFilter.mode(
+              Colors.grey.shade600,
+              BlendMode.srcIn,
+            ),
+          ),
+          activeIcon: SvgPicture.asset(
+            "assets/icons/leads.svg",
+            width: 28,
+            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
+          ),
           label: "My Leads",
         ),
       ],
