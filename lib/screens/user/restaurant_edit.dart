@@ -150,21 +150,19 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // LOAD AMOUNT PAID + BALANCE
     // -----------------------------
     final amountPaidFromDB = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
-    // final balanceFromDB = double.tryParse(_coerce(r["balance"])) ?? 0;
+    final toPayFromDB = double.tryParse(_coerce(r["to_pay"])) ?? 0;
 
     // -----------------------------
     // LOAD PAYMENT HISTORY
     // -----------------------------
     deposits.clear();
-    _loadPaymentDetails(
-      r["payment_detials"],
-    ); // IMPORTANT: backend uses payment_detials
+    // IMPORTANT: backend uses payment_detials
 
     // If DB has amount_paid but no JSON deposit list, create single deposit
-    if (deposits.isEmpty && amountPaidFromDB > 0) {
+    if (amountPaidFromDB > 0) {
       deposits.add({
         "amount": amountPaidFromDB,
-        "date": paymentDateFromDB ?? _today(),
+        "date": _formatDate(r["created_at"]),
       });
     }
 
@@ -177,7 +175,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     if (d == null) return "";
     final parsed = double.tryParse(d.toString());
     if (parsed == null) return "";
-    return parsed.toStringAsFixed(0);
+
+    // DB: 0.05 → UI: 5
+    return (parsed * 100).toStringAsFixed(0);
   }
 
   Map<String, dynamic> _normalize(dynamic raw) {

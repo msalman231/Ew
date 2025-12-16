@@ -3,12 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:efficient_works/config/constants.dart';
 
 class RestaurantService {
-  // GET all restaurants (example)
-  static Future<List<dynamic>> getRestaurants() async {
-    final res = await http.get(Uri.parse("${AppConfig.baseUrl}/restaurants"));
-    return res.statusCode == 200 ? jsonDecode(res.body) : [];
-  }
-
   // ADD restaurant (POST)
   static Future<bool> addRestaurant(
     int userId,
@@ -156,6 +150,13 @@ class RestaurantService {
   static Future<List<dynamic>> getRestaurantsByUser(int userId) async {
     final res = await http.get(
       Uri.parse("${AppConfig.baseUrl}/restaurants/$userId"),
+    );
+    return res.statusCode == 200 ? jsonDecode(res.body) : [];
+  }
+
+  static Future<List<dynamic>> getRestaurants() async {
+    final res = await http.get(
+      Uri.parse("${AppConfig.baseUrl}/restaurants_role"),
     );
     return res.statusCode == 200 ? jsonDecode(res.body) : [];
   }
