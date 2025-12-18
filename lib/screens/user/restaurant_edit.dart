@@ -1,5 +1,4 @@
-// lib/pages/restaurant_edit_page.dart
-import 'dart:convert';
+// import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
@@ -22,8 +21,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
   // Address controllers
   late TextEditingController addressCtrl;
-  late TextEditingController areaCtrl;
-  late TextEditingController cityCtrl;
 
   // Conversion/payment controllers
   final emailCtrl = TextEditingController();
@@ -35,6 +32,10 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   // Deposits (session)
   final depositAmountCtrl = TextEditingController();
   List<Map<String, dynamic>> deposits = [];
+
+  bool _isEditMode = true;
+  // Discount is flat amount
+  // String discountForBackend = discountCtrl.text.trim();
 
   // state
   String? restaurantType;
@@ -66,7 +67,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   final List<String> restaurantTypes = [
     "Leads",
     "Follows",
-    "Future Follows",
     "Closed",
     "Installation",
     "Conversion",
@@ -80,14 +80,29 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
         return "Leads";
       case "follows":
         return "Follows";
-      case "future_follows":
-        return "Future Follows";
-      case "closed":
-        return "Closed";
       case "installation":
         return "Installation";
       case "conversion":
         return "Conversion";
+      case "closed":
+        return "Closed";
+      default:
+        return "";
+    }
+  }
+
+  String _mapUiToBackendResType(String ui) {
+    switch (ui) {
+      case "Leads":
+        return "leads";
+      case "Follows":
+        return "follows";
+      case "Installation":
+        return "installation";
+      case "Conversion":
+        return "conversion";
+      case "Closed":
+        return "closed";
       default:
         return "";
     }
@@ -106,18 +121,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     phoneCtrl = TextEditingController(text: r["phone"] ?? "");
     contactCtrl = TextEditingController(text: r["contact"] ?? "");
 
-    // Address
-    final locParts = (r["location"] ?? "").toString().split(", ");
-    addressCtrl = TextEditingController(
-      text: locParts.isNotEmpty ? locParts[0] : "",
-    );
-    areaCtrl = TextEditingController(
-      text: locParts.length > 1 ? locParts[1] : "",
-    );
-    cityCtrl = TextEditingController(
-      text: locParts.length > 2 ? locParts[2] : "",
-    );
-
+    addressCtrl = TextEditingController(text: r["location"]?.toString() ?? "");
     // Status
     restaurantType = _mapResTypeToUI(r["res_type"]);
 
@@ -137,7 +141,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // DISCOUNT UI FIX
     // DB stores: 10.00 → show: 10
     // -----------------------------
-    discountCtrl.text = _displayDiscount(r["discount"]);
+    discountCtrl.text = _coerce(r["discount"]);
 
     // To Pay
     toPayCtrl.text = _coerce(r["to_pay"]);
@@ -172,7 +176,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // LOAD AMOUNT PAID + BALANCE
     // -----------------------------
     final amountPaidFromDB = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
-    final toPayFromDB = double.tryParse(_coerce(r["to_pay"])) ?? 0;
+    // final toPayFromDB = double.tryParse(_coerce(r["to_pay"])) ?? 0;
 
     // -----------------------------
     // LOAD PAYMENT HISTORY
@@ -188,24 +192,20 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       });
     }
 
-    // Recalculate if needed
-    if (costCtrl.text.isEmpty) _recalculateCost();
-    if (toPayCtrl.text.isEmpty) _recalculateToPay();
-
     // -----------------------------
     // LOAD CLOSED REASON (IMPORTANT)
     // -----------------------------
     commentCtrl.text = r["closed_reason"]?.toString() ?? "";
   }
 
-  String _displayDiscount(dynamic d) {
-    if (d == null) return "";
-    final parsed = double.tryParse(d.toString());
-    if (parsed == null) return "";
+  // String _displayDiscount(dynamic d) {
+  //   if (d == null) return "";
+  //   final parsed = double.tryParse(d.toString());
+  //   if (parsed == null) return "";
 
-    // DB: 0.05 → UI: 5
-    return (parsed * 100).toStringAsFixed(0);
-  }
+  //   // DB: 0.05 → UI: 5
+  //   return (parsed * 100).toStringAsFixed(0);
+  // }
 
   Map<String, dynamic> _normalize(dynamic raw) {
     if (raw is Map<String, dynamic>) return raw;
@@ -220,55 +220,64 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     return v.toString();
   }
 
-  void _loadPaymentDetails(dynamic pd) {
-    deposits.clear();
+  // void _loadPaymentDetails(dynamic pd) {
+  //   deposits.clear();
 
-    double paid = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
+  //   double paid = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
 
-    if (pd == null || pd.toString().isEmpty) {
-      if (paid > 0) {
-        deposits.add({"amount": paid, "date": _today()});
-      }
-      return;
-    }
+  //   if (pd == null || pd.toString().isEmpty) {
+  //     if (paid > 0) {
+  //       deposits.add({"amount": paid, "date": _today()});
+  //     }
+  //     return;
+  //   }
 
-    final s = pd.toString().trim();
+  //   final s = pd.toString().trim();
 
-    if (s.toLowerCase() == "settled") {
-      if (paid > 0) {
-        deposits.add({"amount": paid, "date": _today()});
-      }
-      return;
-    }
+  //   if (s.toLowerCase() == "settled") {
+  //     if (paid > 0) {
+  //       deposits.add({"amount": paid, "date": _today()});
+  //     }
+  //     return;
+  //   }
 
-    // Means: Card, Online-UPI, Cash
-    if (!s.startsWith("[") && !s.contains("{")) {
-      if (paid > 0) {
-        deposits.add({"amount": paid, "date": _today()});
-      }
-      return;
-    }
+  //   // Means: Card, Online-UPI, Cash
+  //   if (!s.startsWith("[") && !s.contains("{")) {
+  //     if (paid > 0) {
+  //       deposits.add({"amount": paid, "date": _today()});
+  //     }
+  //     return;
+  //   }
 
-    // JSON case
-    try {
-      final decoded = jsonDecode(s);
-      if (decoded is List) {
-        for (var item in decoded) {
-          deposits.add({
-            "amount": double.tryParse(item["amount"].toString()) ?? 0,
-            "date": item["date"] ?? _today(),
-          });
-        }
-      }
-    } catch (_) {
-      if (paid > 0) {
-        deposits.add({"amount": paid, "date": _today()});
-      }
-    }
+  //   // JSON case
+  //   try {
+  //     final decoded = jsonDecode(s);
+  //     if (decoded is List) {
+  //       for (var item in decoded) {
+  //         deposits.add({
+  //           "amount": double.tryParse(item["amount"].toString()) ?? 0,
+  //           "date": item["date"] ?? _today(),
+  //         });
+  //       }
+  //     }
+  //   } catch (_) {
+  //     if (paid > 0) {
+  //       deposits.add({"amount": paid, "date": _today()});
+  //     }
+  //   }
+  // }
+
+  bool get _canPay {
+    final amtText = depositAmountCtrl.text.trim();
+    final amt = double.tryParse(amtText) ?? 0;
+
+    return selectedPaymentMethod != null && amt > 0;
   }
 
   // price logic
   void _recalculateCost() {
+    if (_isEditMode) return; // 🚫 DO NOT TOUCH COST IN EDIT
+
     if (selectedTopTab == "Retail") {
       costCtrl.text = retailFixedPrice.toString();
     } else {
@@ -276,15 +285,18 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       for (var p in selectedPos) total += posPrices[p] ?? 0;
       costCtrl.text = total.toString();
     }
+
     _recalculateToPay();
   }
 
   void _recalculateToPay() {
-    final c = double.tryParse(costCtrl.text) ?? 0;
-    final discPercent = double.tryParse(discountCtrl.text) ?? 0;
-    final toPay = c - (c * (discPercent / 100));
+    final cost = double.tryParse(costCtrl.text) ?? 0;
+    final discountAmount = double.tryParse(discountCtrl.text) ?? 0;
+
+    final toPay = (cost - discountAmount).clamp(0, double.infinity);
     toPayCtrl.text = toPay.toStringAsFixed(0);
-    setState(() {}); // update balance display
+
+    setState(() {});
   }
 
   // deposits
@@ -295,24 +307,29 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   void _addDeposit() {
     final txt = depositAmountCtrl.text.trim();
     if (txt.isEmpty) return;
-    final amt = double.tryParse(txt) ?? 0;
-    if (amt <= 0) return;
 
-    final currentToPay = double.tryParse(toPayCtrl.text) ?? 0;
-    final paidSoFar = deposits.fold<double>(
-      0,
-      (s, it) => s + (it["amount"] as double),
-    );
-    final newPaid = paidSoFar + amt;
+    if (selectedPaymentMethod == null) {
+      _toast("Please select payment method");
+      return;
+    }
+
+    final amt = double.tryParse(txt);
+    if (amt == null || amt <= 0) {
+      _toast("Enter a valid amount");
+      return;
+    }
+
+    final toPay = double.tryParse(toPayCtrl.text) ?? 0;
+    final paidSoFar = _sumDeposits;
+
+    if (amt > (toPay - paidSoFar)) {
+      _toast("Entered amount exceeds balance due");
+      return;
+    }
 
     depositAmountCtrl.clear();
 
-    if (newPaid >= currentToPay) {
-      deposits.clear();
-      deposits.add({"amount": currentToPay, "date": _today()});
-    } else {
-      deposits.add({"amount": amt, "date": _today()});
-    }
+    deposits.add({"amount": amt, "date": _today()});
 
     setState(() {});
   }
@@ -344,12 +361,26 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       (_sumDeposits >= (double.tryParse(toPayCtrl.text) ?? 0)) &&
       (double.tryParse(toPayCtrl.text) ?? 0) > 0;
 
+  Future<void> _pickVisitDateIfAllowed() async {
+    if (_isEditMode == false) return; // safety if needed
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: createdAt ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null) {
+      setState(() => createdAt = picked);
+    }
+  }
+
   // ------------------ update send to backend ------------------
   Future<void> _updateRestaurant() async {
     setState(() => isLoading = true);
 
-    final fullAddress =
-        "${addressCtrl.text}, ${areaCtrl.text}, ${cityCtrl.text}";
+    final fullAddress = addressCtrl.text.trim();
 
     final loc = await LocationService.getLocationDetails();
 
@@ -366,11 +397,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     String paymentDetialsPayload = selectedPaymentMethod ?? "";
 
     // Convert UI discount (10) → backend decimal (0.10)
-    String backendDiscount = "";
-    if (discountCtrl.text.trim().isNotEmpty) {
-      final p = double.tryParse(discountCtrl.text) ?? 0;
-      backendDiscount = (p / 100).toString();
-    }
+    String backendDiscount = discountCtrl.text.trim();
 
     bool ok = false;
 
@@ -381,20 +408,16 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       ok = await RestaurantService.updateRestaurant(
         r["id"],
         "conversion",
-
         name: nameCtrl.text,
         email: emailCtrl.text,
         product: selectedTopTab,
         posMulti: selectedPos.join(","),
-
         cost: costCtrl.text,
         discount: backendDiscount,
         toPay: toPayValue.toStringAsFixed(0),
         amountPaid: amountPaid.toStringAsFixed(0),
         balance: balanceValue.toStringAsFixed(0),
-
         paymentDetails: paymentDetialsPayload,
-
         contact: contactCtrl.text,
         phone: phoneCtrl.text,
         location: fullAddress,
@@ -402,14 +425,28 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
         longitude: loc["longitude"].toString(),
       );
     }
-    // --------------------------------------------------------
-    // CASE 2: Closed (backend accepts ONLY closed_reason + res_type)
-    // --------------------------------------------------------
+    // CLOSED
     else if (restaurantType?.toLowerCase() == "closed") {
       ok = await RestaurantService.updateRestaurant(
         r["id"],
         "closed",
         closedReason: commentCtrl.text,
+      );
+    }
+    // ✅ ALL OTHER STATUS TYPES
+    else {
+      final backendResType = _mapUiToBackendResType(restaurantType!);
+
+      ok = await RestaurantService.updateRestaurant(
+        r["id"],
+        backendResType,
+        name: nameCtrl.text,
+        contact: contactCtrl.text,
+        phone: phoneCtrl.text,
+        location: fullAddress,
+        latitude: loc["latitude"].toString(),
+        longitude: loc["longitude"].toString(),
+        visitDate: createdAt?.toIso8601String(),
       );
     }
 
@@ -431,13 +468,33 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
         color: Colors.white,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ---------------- PAYMENT METHOD ----------------
+          DropdownButtonFormField<String>(
+            decoration: const InputDecoration(
+              labelText: "Payment Method",
+              border: OutlineInputBorder(),
+            ),
+            value: paymentOptions.contains(selectedPaymentMethod)
+                ? selectedPaymentMethod
+                : null,
+            items: paymentOptions
+                .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                .toList(),
+            onChanged: (v) => setState(() => selectedPaymentMethod = v),
+          ),
+
+          const SizedBox(height: 14),
+
+          // ---------------- ENTER AMOUNT + PAY ----------------
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: depositAmountCtrl,
                   keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: "Enter amount",
                     filled: true,
@@ -451,13 +508,10 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               ),
               const SizedBox(width: 10),
               ElevatedButton(
-                onPressed: () {
-                  _addDeposit();
-                  setState(() {});
-                },
+                onPressed: _canPay ? _addDeposit : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F766E), // modern teal
-                  foregroundColor: Colors.white, // text & icon color
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
                   elevation: 2,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 26,
@@ -481,7 +535,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
           const SizedBox(height: 20),
 
-          // Payment History
+          // ---------------- PAYMENT HISTORY ----------------
           ...deposits.asMap().entries.map((entry) {
             final index = entry.key;
             final p = entry.value;
@@ -502,9 +556,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // LEFT SIDE (Payment + Date)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -526,8 +578,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                       ),
                     ],
                   ),
-
-                  // RIGHT SIDE (AMOUNT)
                   Text(
                     "${p["amount"]}",
                     style: TextStyle(
@@ -543,7 +593,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
           const SizedBox(height: 10),
 
-          // Balance Due
+          // ---------------- BALANCE ----------------
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -575,9 +625,13 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
           setState(() {
             selectedTopTab = label;
             selectedPos.clear();
-            _recalculateCost();
+
+            if (!_isEditMode) {
+              _recalculateCost();
+            }
           });
         },
+
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -664,14 +718,17 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               ),
               child: Column(
                 children: [
-                  _textField(nameCtrl, "Restaurant Name"),
+                  _textField(nameCtrl, "Restaurant Name", readOnly: true),
                   const SizedBox(height: 10),
-                  _textField(contactCtrl, "Contact Person"),
+
+                  _textField(contactCtrl, "Contact Person", readOnly: true),
                   const SizedBox(height: 10),
+
                   _textField(
                     phoneCtrl,
                     "Phone Number",
                     keyboard: TextInputType.number,
+                    readOnly: true,
                   ),
                 ],
               ),
@@ -708,29 +765,32 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
+
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  _textField(addressCtrl, "Address"),
-                  const SizedBox(height: 10),
-                  _textField(areaCtrl, "Area"),
-                  const SizedBox(height: 10),
-                  _textField(cityCtrl, "City"),
-                ],
+              child: TextField(
+                controller: addressCtrl,
+                maxLines: 5,
+                minLines: 3,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  hintText: "Enter full address",
+                  border: OutlineInputBorder(),
+                ),
               ),
             ),
+
             const SizedBox(height: 18),
             //-------------------------------------------------------------
-            // CREATED AT (READ-ONLY)
+            // VISIT DATE — ALWAYS READ ONLY (ALL STATUS)
             //-------------------------------------------------------------
             Container(
               padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 20),
+              margin: const EdgeInsets.only(bottom: 4),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
@@ -742,36 +802,53 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "Created At",
+                    "Visit Date",
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            createdAt == null
-                                ? "Not available"
-                                : "${createdAt!.day}/${createdAt!.month}/${createdAt!.year}",
-                            style: const TextStyle(fontSize: 16),
+
+                  GestureDetector(
+                    // ✅ ONLY ENABLE FOR INSTALLATION
+                    onTap: restaurantType == "Installation"
+                        ? _pickVisitDateIfAllowed
+                        : null,
+
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: restaurantType == "Installation"
+                            ? Colors.white
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              createdAt == null
+                                  ? "Not available"
+                                  : "${createdAt!.day}/${createdAt!.month}/${createdAt!.year}",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: restaurantType == "Installation"
+                                    ? Colors.black
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
                           ),
-                        ),
-                        Icon(
-                          Icons.event,
-                          size: 20,
-                          color: Colors.grey.shade700,
-                        ),
-                      ],
+                          Icon(
+                            Icons.event,
+                            size: 20,
+                            color: restaurantType == "Installation"
+                                ? Colors.teal
+                                : Colors.grey.shade600,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -825,7 +902,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                                 setState(() {
                                   selectedPos.add(value);
                                 });
-                                _recalculateCost();
+                                if (!_isEditMode) {
+                                  _recalculateCost();
+                                }
                               }
                             },
                           ),
@@ -862,7 +941,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                                         setState(() {
                                           selectedPos.remove(pos);
                                         });
-                                        _recalculateCost();
+                                        if (!_isEditMode) {
+                                          _recalculateCost();
+                                        }
                                       },
                                       child: const Icon(
                                         Icons.close,
@@ -882,24 +963,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                       const SizedBox(height: 12),
                     ],
 
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: "Payment Method",
-                        border: OutlineInputBorder(),
-                      ),
-                      value: paymentOptions.contains(selectedPaymentMethod)
-                          ? selectedPaymentMethod
-                          : null,
-                      items: paymentOptions
-                          .map(
-                            (p) => DropdownMenuItem(value: p, child: Text(p)),
-                          )
-                          .toList(),
-                      onChanged: (v) =>
-                          setState(() => selectedPaymentMethod = v),
-                    ),
-
-                    const SizedBox(height: 12),
                     TextField(
                       controller: costCtrl,
                       readOnly: true,
@@ -914,7 +977,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                       keyboardType: TextInputType.number,
                       onChanged: (_) => _recalculateToPay(),
                       decoration: const InputDecoration(
-                        labelText: "Discount %",
+                        labelText: "Discount Amount",
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1046,8 +1109,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     phoneCtrl.dispose();
     contactCtrl.dispose();
     addressCtrl.dispose();
-    areaCtrl.dispose();
-    cityCtrl.dispose();
     emailCtrl.dispose();
     costCtrl.dispose();
     discountCtrl.dispose();

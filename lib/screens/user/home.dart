@@ -648,11 +648,32 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: TextButton.icon(
                       onPressed: () {
-                        final uri = Uri.parse(
-                          "https://www.google.com/maps/dir/?api=1&destination=${r["latitude"]},${r["longitude"]}",
-                        );
+                        final lat = r["latitude"];
+                        final lng = r["longitude"];
+                        final address = r["location"];
+
+                        Uri uri;
+
+                        if (lat != null &&
+                            lng != null &&
+                            lat.toString().isNotEmpty) {
+                          // GPS-based navigation
+                          uri = Uri.parse(
+                            "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
+                          );
+                        } else {
+                          // Manual address-based navigation
+                          final encodedAddress = Uri.encodeComponent(
+                            address ?? "",
+                          );
+                          uri = Uri.parse(
+                            "https://www.google.com/maps/dir/?api=1&destination=$encodedAddress",
+                          );
+                        }
+
                         launchUrl(uri, mode: LaunchMode.externalApplication);
                       },
+
                       icon: Icon(Icons.location_on, color: Colors.teal),
                       label: Text(
                         "Direction",

@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'admin/admin_home.dart';
+import 'package:flutter/services.dart';
+
 import 'user/home.dart';
 
 import '../../config/constants.dart';
@@ -20,6 +22,10 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final email = TextEditingController();
   final password = TextEditingController();
+
+  static const String companyDomain = "@efficient-works.com";
+
+  String get fullEmail => "${email.text.trim()}$companyDomain";
 
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
 
@@ -144,8 +150,8 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email.text)) {
-      _showError("Invalid email format");
+    if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(email.text)) {
+      _showError("Invalid username");
       return;
     }
 
@@ -156,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
 
-    final userData = await validateUser(email.text, password.text);
+    final userData = await validateUser(fullEmail, password.text);
 
     if (userData == null) {
       _showError("Invalid credentials");
@@ -223,7 +229,10 @@ class _LoginPageState extends State<LoginPage> {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color.fromARGB(255, 247, 247, 247), Color(0xFF4A148C)],
+                colors: [
+                  Color.fromARGB(255, 247, 247, 247),
+                  Color.fromARGB(255, 32, 150, 62),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -233,12 +242,12 @@ class _LoginPageState extends State<LoginPage> {
           Positioned(
             top: -60,
             right: -40,
-            child: _blob(220, Colors.pinkAccent),
+            child: _blob(220, const Color.fromARGB(255, 248, 124, 165)),
           ),
           Positioned(
             bottom: -80,
             left: -40,
-            child: _blob(250, Colors.blueAccent),
+            child: _blob(250, const Color.fromRGBO(132, 202, 141, 1)),
           ),
 
           Center(
@@ -277,6 +286,7 @@ class _LoginPageState extends State<LoginPage> {
             icon: Icons.email,
             keyboardType: TextInputType.emailAddress,
           ),
+
           const SizedBox(height: 16),
           _glassTextField(
             controller: password,
@@ -295,7 +305,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               Checkbox(
                 value: _rememberMe,
-                activeColor: const Color.fromARGB(255, 93, 12, 193),
+                activeColor: const Color.fromARGB(255, 193, 42, 12),
                 onChanged: (value) {
                   setState(() => _rememberMe = value ?? false);
                 },
@@ -326,7 +336,12 @@ class _LoginPageState extends State<LoginPage> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _validateAndLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withOpacity(0.2),
+          backgroundColor: const Color.fromARGB(
+            255,
+            146,
+            134,
+            134,
+          ).withOpacity(0.2),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
@@ -340,7 +355,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    Color.fromARGB(255, 93, 12, 193),
+                    Color.fromARGB(255, 196, 190, 203),
                   ),
                 ),
               )
@@ -348,7 +363,7 @@ class _LoginPageState extends State<LoginPage> {
                 "Login",
                 style: TextStyle(
                   fontSize: 20,
-                  color: Color.fromARGB(255, 93, 12, 193),
+                  color: Color.fromARGB(255, 206, 37, 7),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -372,33 +387,70 @@ class _LoginPageState extends State<LoginPage> {
         border: Border.all(color: Colors.white.withOpacity(0.3)),
         color: Colors.white.withOpacity(0.1),
       ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        maxLength: keyboardType == TextInputType.number ? 10 : null,
-        style: const TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.w600,
-          fontSize: 20,
-        ),
-        decoration: InputDecoration(
-          counterText: "",
-          prefixIcon: Icon(icon, color: Colors.white),
-          suffixIcon: isPasswordField
-              ? IconButton(
-                  icon: Icon(
-                    showPassword ? Icons.visibility : Icons.visibility_off,
-                    color: Colors.white,
-                  ),
-                  onPressed: onTogglePassword,
-                )
-              : null,
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-        ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 10),
+
+          // INPUT FIELD
+          Expanded(
+            child: TextField(
+              controller: controller,
+              obscureText: obscure,
+              keyboardType: keyboardType,
+
+              // 🔒 PASSCODE RESTRICTION (ONLY HERE)
+              inputFormatters: isPasswordField
+                  ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ]
+                  : null,
+
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+                fontSize: 20,
+              ),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+
+          // DOMAIN ONLY FOR EMAIL FIELD
+          if (!isPasswordField)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: const Text(
+                "@efficient-works.com",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+          // PASSWORD VISIBILITY TOGGLE
+          if (isPasswordField)
+            IconButton(
+              icon: Icon(
+                showPassword ? Icons.visibility : Icons.visibility_off,
+                color: Colors.white,
+              ),
+              onPressed: onTogglePassword,
+            ),
+        ],
       ),
     );
   }

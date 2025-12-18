@@ -28,7 +28,6 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
     "All": "",
     "Leads": "leads",
     "Follows": "follows",
-    "Future Follows": "future_follows",
     "Closed": "closed",
     "Installation": "installation",
     "Conversion": "conversion",
@@ -182,7 +181,8 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
     ];
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.only(left: 16),
+      padding: EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -235,14 +235,14 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       "All",
       "Leads",
       "Follows",
-      "Future Follows",
       "Closed",
       "Installation",
       "Conversion",
     ];
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.only(right: 16),
+      padding: EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -298,24 +298,46 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   // ----------------------------------------------------------------------
 
   Widget _restaurantCard(r) {
+    Color statusColor(String? status) {
+      switch (status) {
+        case "leads":
+          return Colors.blue;
+        case "follows":
+          return Colors.orange;
+        case "installation":
+          return Colors.purple;
+        case "conversion":
+          return Colors.green;
+        case "closed":
+          return Colors.red;
+        default:
+          return Colors.grey;
+      }
+    }
+
+    String statusLabel(String? status) {
+      if (status == null || status.isEmpty) return "Unknown";
+      return status[0].toUpperCase() + status.substring(1);
+    }
+
     return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // TOP ROW
+          // ---------------- TOP ROW ----------------
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.teal.shade50,
                   borderRadius: BorderRadius.circular(10),
@@ -327,13 +349,38 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                   color: Colors.teal,
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  r["name"],
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  r["name"] ?? "",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              Container(
+                margin: const EdgeInsets.only(right: 56),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor(r["res_type"]).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  statusLabel(r["res_type"]),
+                  style: TextStyle(
+                    color: statusColor(r["res_type"]),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
               InkWell(
                 onTap: () async {
                   bool? updated = await Navigator.push(
@@ -345,7 +392,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                   if (updated == true) loadAllRestaurants();
                 },
                 child: Container(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.teal.shade50,
                     borderRadius: BorderRadius.circular(10),
@@ -361,22 +408,27 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
             ],
           ),
 
-          SizedBox(height: 10),
+          const SizedBox(height: 6),
 
-          // ADDRESS
-          Text(r["location"] ?? "", style: TextStyle(height: 1.3)),
+          // ---------------- STATUS BADGE ----------------
 
-          SizedBox(height: 16),
+          // ---------------- ADDRESS ----------------
+          Text(r["location"] ?? "", style: const TextStyle(height: 1.3)),
+
+          const SizedBox(height: 16),
           Divider(color: Colors.grey.shade300),
 
-          // CALL & DIRECTION BUTTONS
+          // ---------------- CALL & DIRECTION ----------------
           Row(
             children: [
               Expanded(
                 child: TextButton.icon(
                   onPressed: () => launchUrl(Uri.parse("tel:${r['phone']}")),
-                  icon: Icon(Icons.call, color: Colors.teal),
-                  label: Text("Call", style: TextStyle(color: Colors.teal)),
+                  icon: const Icon(Icons.call, color: Colors.teal),
+                  label: const Text(
+                    "Call",
+                    style: TextStyle(color: Colors.teal),
+                  ),
                 ),
               ),
               Container(height: 30, width: 1, color: Colors.grey.shade300),
@@ -388,16 +440,13 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                     final address = r["location"];
 
                     Uri uri;
-
                     if (lat != null &&
                         lng != null &&
                         lat.toString().isNotEmpty) {
-                      // GPS-based navigation
                       uri = Uri.parse(
                         "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
                       );
                     } else {
-                      // Manual address-based navigation
                       final encodedAddress = Uri.encodeComponent(address ?? "");
                       uri = Uri.parse(
                         "https://www.google.com/maps/dir/?api=1&destination=$encodedAddress",

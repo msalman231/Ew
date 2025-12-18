@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
-import 'dart:convert';
+// import 'dart:convert';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter/services.dart';
+// import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RestaurantFormPage extends StatefulWidget {
   final int userId;
@@ -61,7 +62,6 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   final List<String> restaurantTypes = [
     "Leads",
     "Follows",
-    "Future Follows",
     "Closed",
     "Installation",
     "Conversion",
@@ -82,7 +82,6 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   // Auto Price Fields (from your POS selection)
   double cost = 0;
   double toPay = 0;
-  double balanceDue = 0;
 
   void _recalculateCost() {
     if (selectedTopTab == "Retail") {
@@ -104,39 +103,57 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     _recalculateToPay();
   }
 
+  bool get _canPay {
+    final amt = double.tryParse(depositAmountCtrl.text.trim()) ?? 0;
+    return selectedPaymentMethod != null && amt > 0;
+  }
+
+  String safeAddress(String? address) {
+    if (address == null) return "";
+    if (address.trim().isEmpty) return "";
+    if (address.toLowerCase() == "null") return "";
+    return address.trim();
+  }
+
   void _recalculateToPay() {
-    int cost = int.tryParse(costCtrl.text) ?? 0;
-    double discountPercent = double.tryParse(discountCtrl.text) ?? 0;
+    final cost = double.tryParse(costCtrl.text) ?? 0;
+    final discountAmount = double.tryParse(discountCtrl.text) ?? 0;
 
-    double toPay = cost - (cost * (discountPercent / 100));
-
+    final toPay = (cost - discountAmount).clamp(0, double.infinity);
     balanceCtrl.text = toPay.toStringAsFixed(0);
+
+    setState(() {});
   }
 
   void _addDepositPayment() {
-    if (depositAmountCtrl.text.isEmpty) return;
-
-    double amount = double.tryParse(depositAmountCtrl.text) ?? 0;
-    if (amount <= 0) return;
-
-    double toPayTotal = double.tryParse(balanceCtrl.text) ?? 0;
-
-    double totalPaid = deposits.fold(0.0, (sum, p) => sum + p["amount"]);
-    double newTotal = totalPaid + amount;
-
-    depositAmountCtrl.clear();
-
-    // CASE A: Full amount paid
-    if (newTotal >= toPayTotal) {
-      deposits.clear(); // no deposit history needed
-      deposits.add({"amount": toPayTotal, "date": _today()});
-      setState(() {});
+    if (selectedPaymentMethod == null) {
+      _toast("Please select payment method");
       return;
     }
 
-    // CASE B: Partial payment
-    deposits.add({"amount": amount, "date": _today()});
-    balanceDue = toPayTotal - newTotal;
+    final txt = depositAmountCtrl.text.trim();
+    if (txt.isEmpty) return;
+
+    final amt = double.tryParse(txt);
+    if (amt == null || amt <= 0) {
+      _toast("Enter a valid amount");
+      return;
+    }
+
+    final toPayTotal = double.tryParse(balanceCtrl.text) ?? 0;
+    final paidSoFar = deposits.fold<double>(
+      0,
+      (sum, p) => sum + (p["amount"] as double),
+    );
+
+    if (amt > (toPayTotal - paidSoFar)) {
+      _toast("Entered amount exceeds balance due");
+      return;
+    }
+
+    depositAmountCtrl.clear();
+
+    deposits.add({"amount": amt, "date": _today()});
 
     setState(() {});
   }
@@ -145,22 +162,22 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     return "${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}";
   }
 
-  void _updatePrices() {
-    cost = 0;
+  // void _updatePrices() {
+  //   cost = 0;
 
-    if (selectedPos.contains("Mobile Pos")) cost += 3000;
-    if (selectedPos.contains("Web Pos")) cost += 2000;
-    if (selectedPos.contains("Waiter App")) cost += 5000;
+  //   if (selectedPos.contains("Mobile Pos")) cost += 3000;
+  //   if (selectedPos.contains("Web Pos")) cost += 2000;
+  //   if (selectedPos.contains("Waiter App")) cost += 5000;
 
-    // Apply discount
-    final discountPercent = double.tryParse(discountCtrl.text) ?? 0;
-    final discountValue = cost * (discountPercent / 100);
+  //   // Apply discount
+  //   final discountPercent = double.tryParse(discountCtrl.text) ?? 0;
+  //   final discountValue = cost * (discountPercent / 100);
 
-    toPay = cost - discountValue;
-    balanceDue = toPay;
+  //   toPay = cost - discountValue;
+  //   balanceDue = toPay;
 
-    setState(() {});
-  }
+  //   setState(() {});
+  // }
 
   Future<void> _pickInstallationDate() async {
     final picked = await showDatePicker(
@@ -406,7 +423,25 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   //   );
   // }
 
+  Future<void> openInGoogleMaps({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final uri = Uri.parse(
+      "https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude",
+    );
+
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Widget _buildDepositContainer() {
+    final toPayTotal = double.tryParse(balanceCtrl.text) ?? 0;
+    final paidTotal = deposits.fold<double>(
+      0,
+      (sum, p) => sum + (p["amount"] as double),
+    );
+    final balance = (toPayTotal - paidTotal).clamp(0, double.infinity);
+
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(top: 10),
@@ -424,6 +459,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                 child: TextField(
                   controller: depositAmountCtrl,
                   keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: "Enter amount",
                     filled: true,
@@ -437,15 +473,27 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
               ),
               const SizedBox(width: 10),
               ElevatedButton(
-                onPressed: _addDepositPayment,
+                onPressed: _canPay ? _addDepositPayment : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal.shade700,
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  elevation: 2,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                    horizontal: 26,
                     vertical: 14,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text("Pay"),
+                child: const Text(
+                  "Pay",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
               ),
             ],
           ),
@@ -453,40 +501,11 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
           const SizedBox(height: 20),
 
           // PAYMENT HISTORY
-          ...deposits.map((p) {
-            return Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Payment : ${deposits.indexOf(p) + 1}"),
-                      Text(p["date"], style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                  Text(
-                    "${p["amount"]}", // NO CURRENCY SYMBOL
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          ...deposits.map((p) => _paymentTile(p)),
 
           const SizedBox(height: 10),
 
-          // BALANCE DUE
+          // BALANCE DUE (NOW CORRECT)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -495,7 +514,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               Text(
-                balanceDue.toStringAsFixed(2),
+                balance.toStringAsFixed(0),
                 style: const TextStyle(
                   fontSize: 18,
                   color: Colors.red,
@@ -503,6 +522,40 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _paymentTile(Map<String, dynamic> p) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Payment : ${deposits.indexOf(p) + 1}",
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(p["date"], style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          Text(
+            p["amount"].toStringAsFixed(0),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Colors.teal.shade700,
+            ),
           ),
         ],
       ),
@@ -1035,13 +1088,9 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
           TextField(
             controller: discountCtrl,
             keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(2),
-            ],
             onChanged: (_) => _recalculateToPay(),
             decoration: InputDecoration(
-              hintText: "Discount %",
+              hintText: "Discount Amount",
               filled: true,
               fillColor: Colors.grey.shade200,
               border: OutlineInputBorder(
@@ -1150,11 +1199,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     }
 
     // Convert discount % → decimal for backend
-    String discountForBackend = "";
-    if (discountCtrl.text.isNotEmpty) {
-      final p = double.tryParse(discountCtrl.text) ?? 0;
-      discountForBackend = (p / 100).toString(); // 5 → 0.05
-    }
+    String discountForBackend = discountCtrl.text.trim();
 
     Map<String, dynamic>? loc;
     String addressToSend;
@@ -1162,16 +1207,25 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     String? longitude;
 
     if (useManualAddress) {
-      // Manual address → NO GPS
-      addressToSend = manualAddress!;
+      addressToSend = safeAddress(manualAddress);
+
+      if (addressToSend.isEmpty) {
+        _toast("Please enter address");
+        return false;
+      }
+
       latitude = null;
       longitude = null;
     } else {
-      // Auto location → GPS
       loc = await LocationService.getLocationDetails();
-      addressToSend = loc["address"];
+
+      addressToSend = safeAddress(loc["address"]);
       latitude = loc["latitude"]?.toString();
       longitude = loc["longitude"]?.toString();
+
+      if (addressToSend.isEmpty && latitude != null && longitude != null) {
+        addressToSend = "$latitude,$longitude"; // Maps-safe fallback
+      }
     }
 
     // ---------------------------
@@ -1223,96 +1277,96 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   // UI COMPONENTS
   // =============================================================
 
-  Widget _sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
+  // Widget _sectionTitle(String title) {
+  //   return Padding(
+  //     padding: const EdgeInsets.only(bottom: 8),
+  //     child: Text(
+  //       title,
+  //       style: const TextStyle(
+  //         fontSize: 18,
+  //         fontWeight: FontWeight.bold,
+  //         color: Colors.black87,
+  //       ),
+  //     ),
+  //   );
+  // }
 
-  Widget _card({required List<Widget> children}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+  // Widget _card({required List<Widget> children}) {
+  //   return Container(
+  //     width: double.infinity,
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
 
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black12,
+  //           blurRadius: 6,
+  //           offset: const Offset(0, 3),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: children,
+  //     ),
+  //   );
+  // }
 
-  Widget _textField(
-    TextEditingController ctrl,
-    String label, {
-    TextInputType keyboard = TextInputType.text,
-    int? maxLen,
-  }) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: keyboard,
-      maxLength: maxLen,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        filled: true,
-        fillColor: Colors.grey.shade100,
-      ),
-    );
-  }
+  // Widget _textField(
+  //   TextEditingController ctrl,
+  //   String label, {
+  //   TextInputType keyboard = TextInputType.text,
+  //   int? maxLen,
+  // }) {
+  //   return TextField(
+  //     controller: ctrl,
+  //     keyboardType: keyboard,
+  //     maxLength: maxLen,
+  //     decoration: InputDecoration(
+  //       labelText: label,
+  //       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+  //       filled: true,
+  //       fillColor: Colors.grey.shade100,
+  //     ),
+  //   );
+  // }
 
-  InputDecoration _dropdownStyle(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      filled: true,
-      fillColor: Colors.grey.shade100,
-    );
-  }
+  // InputDecoration _dropdownStyle(String label) {
+  //   return InputDecoration(
+  //     labelText: label,
+  //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+  //     filled: true,
+  //     fillColor: Colors.grey.shade100,
+  //   );
+  // }
 
-  Widget _buildClosedReason() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle("Closed - Reason"),
+  // Widget _buildClosedReason() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       _sectionTitle("Closed - Reason"),
 
-        _card(
-          children: [
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: "Reason",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  //       _card(
+  //         children: [
+  //           TextField(
+  //             controller: reasonCtrl,
+  //             maxLines: 3,
+  //             decoration: InputDecoration(
+  //               labelText: "Reason",
+  //               border: OutlineInputBorder(
+  //                 borderRadius: BorderRadius.circular(10),
+  //               ),
+  //               filled: true,
+  //               fillColor: Colors.grey.shade100,
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ],
+  //   );
+  // }
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -1329,36 +1383,17 @@ class ManualAddressPopup extends StatefulWidget {
 }
 
 class _ManualAddressPopupState extends State<ManualAddressPopup> {
-  final doorCtrl = TextEditingController();
-  final streetCtrl = TextEditingController();
-  final areaCtrl = TextEditingController();
-  final cityCtrl = TextEditingController();
-  final stateCtrl = TextEditingController(text: "Tamil Nadu");
-  final pincodeCtrl = TextEditingController();
+  final TextEditingController addressCtrl = TextEditingController();
 
   void _save() {
-    if (doorCtrl.text.trim().isEmpty ||
-        streetCtrl.text.trim().isEmpty ||
-        areaCtrl.text.trim().isEmpty ||
-        cityCtrl.text.trim().isEmpty ||
-        pincodeCtrl.text.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please fill all address fields correctly"),
-        ),
-      );
+    if (addressCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter address")));
       return;
     }
 
-    final fullAddress =
-        "${doorCtrl.text}, "
-        "${streetCtrl.text}, "
-        "${areaCtrl.text}, "
-        "${cityCtrl.text}, "
-        "${stateCtrl.text} "
-        "${pincodeCtrl.text}";
-
-    widget.onSave(fullAddress.trim());
+    widget.onSave(addressCtrl.text.trim());
     Navigator.pop(context);
   }
 
@@ -1378,32 +1413,32 @@ class _ManualAddressPopupState extends State<ManualAddressPopup> {
               "Add Address Manually",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // ---------------- FORM CARD ----------------
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black12, blurRadius: 6),
-                ],
-              ),
-              child: Column(
-                children: [
-                  _field(doorCtrl, "Door / Flat No"),
-                  _field(streetCtrl, "Street / Road Name"),
-                  _field(areaCtrl, "Area / Nagar"),
-                  _field(cityCtrl, "City"),
-                  _field(stateCtrl, "State"),
-                  _field(
-                    pincodeCtrl,
-                    "Pincode",
-                    keyboard: TextInputType.number,
-                    maxLen: 6,
-                  ),
-                ],
+            const Text(
+              "Add full address from Google or type manually",
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+
+            // ---------------- TEXT AREA ----------------
+            TextField(
+              controller: addressCtrl,
+              maxLines: 6,
+              minLines: 4,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.grey.shade200,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
 
@@ -1451,37 +1486,6 @@ class _ManualAddressPopupState extends State<ManualAddressPopup> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------- INPUT FIELD STYLE ----------------
-  Widget _field(
-    TextEditingController ctrl,
-    String label, {
-    TextInputType keyboard = TextInputType.text,
-    int? maxLen,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TextField(
-        controller: ctrl,
-        keyboardType: keyboard,
-        maxLength: maxLen,
-        decoration: InputDecoration(
-          counterText: "",
-          labelText: label,
-          filled: true,
-          fillColor: Colors.grey.shade200,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
         ),
       ),
     );

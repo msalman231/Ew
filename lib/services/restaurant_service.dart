@@ -67,6 +67,7 @@ class RestaurantService {
   static Future<bool> updateRestaurant(
     int id,
     String resType, {
+    String? visitDate, // ✅ ADD THIS
     String? name,
     String? email,
     String? product,
@@ -86,35 +87,27 @@ class RestaurantService {
   }) async {
     final url = "${AppConfig.baseUrl}/restaurant/$id";
 
-    Map<String, dynamic> body;
-
-    if (resType.toLowerCase() == "conversion") {
-      body = {
-        "id": id,
-        "name": name,
-        "email": email,
-        "product": product,
-        "pos_multi": posMulti,
-
-        "cost": cost,
-        "discount": discount,
-        "to_pay": toPay,
-        "amount_paid": amountPaid,
-        "balance": balance,
-
-        "payment_detials": paymentDetails,
-
-        "contact": contact,
-        "phone": phone,
-        "location": location,
-        "latitude": latitude,
-        "longitude": longitude,
-
-        "res_type": "conversion",
-      };
-    } else {
-      body = {"closed_reason": closedReason, "res_type": "closed"};
-    }
+    Map<String, dynamic> body = {
+      "id": id,
+      "res_type": resType,
+      "created_at": visitDate, // ✅ SEND DATE
+      "name": name,
+      "email": email,
+      "product": product,
+      "pos_multi": posMulti,
+      "cost": cost,
+      "discount": discount,
+      "to_pay": toPay,
+      "amount_paid": amountPaid,
+      "balance": balance,
+      "payment_detials": paymentDetails,
+      "contact": contact,
+      "phone": phone,
+      "location": location,
+      "latitude": latitude,
+      "longitude": longitude,
+      "closed_reason": closedReason,
+    };
 
     body.removeWhere((k, v) => v == null || v.toString().trim().isEmpty);
 
