@@ -4,14 +4,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:flutter_svg/flutter_svg.dart';
-
 import '../../services/restaurant_service.dart';
 import '../../services/attendance_service.dart';
 import 'restaurant_edit.dart';
 import 'restaurant_form_page.dart';
 import 'restaurant_list.dart';
+import '../../services/location_service.dart';
 
 class HomePage extends StatefulWidget {
   final String email;
@@ -30,8 +29,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  //Capture Current Location
   StreamSubscription<Position>? positionStream;
+
+  // Status Filter Restaurant by his status
   List<dynamic> filteredRestaurants = [];
+
+  //Display All Restaurants
   List<dynamic> allRestaurants = [];
 
   String? checkInTime;
@@ -39,15 +43,36 @@ class _HomePageState extends State<HomePage> {
   bool hasCheckedIn = false;
   bool hasCheckedOut = false;
 
+  String _todayDate() {
+    final now = DateTime.now();
+    return "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
+
+    return true;
+  }
+
+  //Update the Date by daily basis
   void resetIfNewDay() async {
     final prefs = await SharedPreferences.getInstance();
-
     final lastDate = prefs.getString("lastAttendanceDate");
-    final today = DateTime.now();
-    final todayStr = "${today.year}-${today.month}-${today.day}";
+    final todayStr = _todayDate();
 
     if (lastDate != todayStr) {
-      // New day → reset UI values
+      await prefs.remove("checkInTime");
+      await prefs.remove("checkOutTime");
+
       setState(() {
         checkInTime = null;
         checkOutTime = null;
@@ -55,29 +80,32 @@ class _HomePageState extends State<HomePage> {
         hasCheckedOut = false;
       });
 
-      // New day → reset stored values
-      await prefs.setString("checkInTime", "");
-      await prefs.setString("checkOutTime", "");
       await prefs.setString("lastAttendanceDate", todayStr);
     }
+  }
+
+  Future<void> _initLocationTracking() async {
+    final granted = await _ensureLocationPermission();
+
+    if (!granted) {
+      debugPrint("📍 Location permission denied. Tracking disabled.");
+      return;
+    }
+
+    startLocationTracking();
   }
 
   @override
   void initState() {
     super.initState();
+
     loadCheckState().then((_) => resetIfNewDay());
     loadRestaurants();
-    startLocationTracking();
+
+    _initLocationTracking();
   }
 
-  // int _selectedIndex = 0;
-
-  // void _onTabTapped(int index) {
-  //   setState(() {
-  //     _selectedIndex = index;
-  //   });
-  // }
-
+  //Check In & Check Out State
   Future<void> loadCheckState() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -97,15 +125,16 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  //Save Check In & Check Out State
   Future<void> saveCheckState() async {
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.setString("checkInTime", checkInTime ?? "");
     await prefs.setString("checkOutTime", checkOutTime ?? "");
     await prefs.setBool("hasCheckedIn", hasCheckedIn);
     await prefs.setBool("hasCheckedOut", hasCheckedOut);
   }
 
+  //Format Time in 24 hours to 12 hours
   String _formatTime(TimeOfDay t) {
     final hour = t.hourOfPeriod.toString().padLeft(2, '0');
     final min = t.minute.toString().padLeft(2, '0');
@@ -119,15 +148,16 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  //Load Restaurant Based on the logged in User Id
   Future<void> loadRestaurants() async {
     final list = await RestaurantService.getRestaurantsByUser(widget.userId);
-
     setState(() {
       allRestaurants = list;
       filteredRestaurants = list;
     });
   }
 
+  //Track Location of the logged in users
   void startLocationTracking() {
     const settings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -138,7 +168,7 @@ class _HomePageState extends State<HomePage> {
         .listen((Position pos) async {
           final addr = await _getAddress(pos.latitude, pos.longitude);
 
-          await RestaurantService.trackLocation(
+          await LocationService.trackLocation(
             userId: widget.userId,
             email: widget.email,
             latitude: pos.latitude.toString(),
@@ -159,18 +189,27 @@ class _HomePageState extends State<HomePage> {
   // ----------------------------------------------------------------------
   Future<void> doCheckIn() async {
     final now = TimeOfDay.now();
+    final prefs = await SharedPreferences.getInstance();
+
+    // 🔒 Preserve FIRST check-in time for UI
+    final storedCheckIn = prefs.getString("checkInTime");
 
     setState(() {
-      // New check-in should always clear old checkout
-      checkInTime = _formatTime(now);
-      checkOutTime = null;
+      if (storedCheckIn == null || storedCheckIn.isEmpty) {
+        checkInTime = _formatTime(now); // UI first time only
+      }
 
       hasCheckedIn = true;
       hasCheckedOut = false;
+      checkOutTime = null;
     });
 
-    await saveCheckState();
-    await AttendanceService.checkIn(widget.userId, widget.email);
+    // Save UI state
+    await prefs.setString("checkInTime", checkInTime!);
+    await prefs.setString("lastAttendanceDate", _todayDate());
+
+    // 🔥 DB update (ONLY required payload)
+    await AttendanceService.checkIn(widget.userId);
   }
 
   // ----------------------------------------------------------------------
@@ -178,14 +217,17 @@ class _HomePageState extends State<HomePage> {
   // ----------------------------------------------------------------------
   Future<void> doCheckOut() async {
     final now = TimeOfDay.now();
+    final prefs = await SharedPreferences.getInstance();
 
     setState(() {
-      hasCheckedOut = true;
       checkOutTime = _formatTime(now);
+      hasCheckedOut = true;
     });
 
-    await saveCheckState();
-    await AttendanceService.checkOut(widget.userId, widget.email);
+    await prefs.setString("checkOutTime", checkOutTime!);
+
+    // 🔥 DB update (ONLY required payload)
+    await AttendanceService.checkOut(widget.userId);
   }
 
   @override
@@ -255,10 +297,6 @@ class _HomePageState extends State<HomePage> {
               "assets/icons/user_avatar.svg",
               width: 26,
               height: 26,
-              // colorFilter: ColorFilter.mode(
-              //   Colors.grey.shade700,
-              //   BlendMode.srcIn,
-              // ),
             ),
           ),
         ],
@@ -422,38 +460,6 @@ class _HomePageState extends State<HomePage> {
     return months[month - 1];
   }
 
-  // -------------------------------------------------------------
-  // CHECK-IN / OUT BUTTON WIDGET
-  // -------------------------------------------------------------
-  // Widget _checkButton({
-  //   required String label,
-  //   required Color color,
-  //   required bool disabled,
-  //   required VoidCallback onTap,
-  // }) {
-  //   return GestureDetector(
-  //     onTap: disabled ? null : onTap,
-  //     child: Container(
-  //       width: 130,
-  //       height: 45,
-  //       decoration: BoxDecoration(
-  //         color: disabled ? Colors.grey.shade300 : color,
-  //         borderRadius: BorderRadius.circular(12),
-  //       ),
-  //       child: Center(
-  //         child: Text(
-  //           label,
-  //           style: TextStyle(
-  //             color: disabled ? Colors.black38 : Colors.white,
-  //             fontSize: 16,
-  //             fontWeight: FontWeight.bold,
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
   // ----------------------------------------------------------------------
   // VISIT BUTTON
   // ----------------------------------------------------------------------
@@ -540,6 +546,28 @@ class _HomePageState extends State<HomePage> {
       itemBuilder: (context, i) {
         final r = filteredRestaurants[i];
 
+        Color statusColor(String? status) {
+          switch (status) {
+            case "leads":
+              return Colors.blue;
+            case "follows":
+              return Colors.orange;
+            case "installation":
+              return Colors.purple;
+            case "conversion":
+              return Colors.green;
+            case "closed":
+              return Colors.red;
+            default:
+              return Colors.grey;
+          }
+        }
+
+        String statusLabel(String? status) {
+          if (status == null || status.isEmpty) return "Unknown";
+          return status[0].toUpperCase() + status.substring(1);
+        }
+
         return Container(
           margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           padding: EdgeInsets.all(16),
@@ -586,6 +614,27 @@ class _HomePageState extends State<HomePage> {
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
+                      ),
+                    ),
+                  ),
+
+                  Container(
+                    margin: const EdgeInsets.only(right: 56),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor(r["res_type"]).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      statusLabel(r["res_type"]),
+                      style: TextStyle(
+                        color: statusColor(r["res_type"]),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ),

@@ -103,6 +103,89 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     _recalculateToPay();
   }
 
+  bool _validateByStatus() {
+    // ---------------- BASIC VALIDATION ----------------
+    if (nameCtrl.text.trim().isEmpty) {
+      _toast("Restaurant Name is required");
+      return false;
+    }
+
+    if (phoneCtrl.text.trim().isEmpty) {
+      _toast("Phone Number is required");
+      return false;
+    }
+
+    if (restaurantType == null) {
+      _toast("Please select a Status");
+      return false;
+    }
+
+    // ---------------- STATUS SPECIFIC ----------------
+    switch (restaurantType) {
+      case "Conversion":
+        if (emailCtrl.text.trim().isEmpty) {
+          _toast("Customer Email is required");
+          return false;
+        }
+
+        if (selectedTopTab == "Restaurant" && selectedPos.isEmpty) {
+          _toast("Please select at least one POS");
+          return false;
+        }
+
+        final cost = double.tryParse(costCtrl.text);
+        if (cost == null || cost <= 0) {
+          _toast("Cost must be greater than zero");
+          return false;
+        }
+
+        final toPay = double.tryParse(balanceCtrl.text);
+        if (toPay == null || toPay <= 0) {
+          _toast("To Pay amount is required");
+          return false;
+        }
+
+        final totalPaid = deposits.fold<double>(
+          0,
+          (sum, p) => sum + (p["amount"] as double),
+        );
+
+        // 🔴 NEW: payment amount validation
+        if (totalPaid <= 0) {
+          _toast("Please enter payment amount");
+          return false;
+        }
+
+        if (totalPaid > toPay) {
+          _toast("Entered amount exceeds payable amount");
+          return false;
+        }
+
+        if (totalPaid < toPay && selectedPaymentMethod == null) {
+          _toast("Please select payment method");
+          return false;
+        }
+
+        break;
+
+      case "Closed":
+        if (reasonCtrl.text.trim().isEmpty) {
+          _toast("Please enter reason for closing");
+          return false;
+        }
+        break;
+
+      case "Installation":
+        if (installationDate == null) {
+          _toast("Please select installation date");
+          return false;
+        }
+        break;
+    }
+
+    return true;
+  }
+
   bool get _canPay {
     final amt = double.tryParse(depositAmountCtrl.text.trim()) ?? 0;
     return selectedPaymentMethod != null && amt > 0;
@@ -862,6 +945,8 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                 onPressed: isLoading
                     ? null
                     : () async {
+                        if (!_validateByStatus()) return; // ⛔ STOP HERE
+
                         setState(() => isLoading = true);
 
                         bool ok = await _saveRestaurant();
@@ -869,9 +954,10 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                         setState(() => isLoading = false);
 
                         if (ok) {
-                          Navigator.pop(context, true); // ✅ IMPORTANT
+                          Navigator.pop(context, true);
                         }
                       },
+
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -984,6 +1070,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
               ),
             ),
           ),
+          const SizedBox(height: 10),
 
           // ---------------------------------------------------------------------
           // POS SECTION (Only for Restaurant)

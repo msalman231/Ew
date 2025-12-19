@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
 
+import 'package:geocoding/geocoding.dart';
+
 class RestaurantEditPage extends StatefulWidget {
   final dynamic restaurant; // Map or List
   const RestaurantEditPage({super.key, required this.restaurant});
@@ -18,6 +20,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   late TextEditingController nameCtrl;
   late TextEditingController phoneCtrl;
   late TextEditingController contactCtrl;
+  late String _originalAddress;
 
   // Address controllers
   late TextEditingController addressCtrl;
@@ -122,6 +125,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     contactCtrl = TextEditingController(text: r["contact"] ?? "");
 
     addressCtrl = TextEditingController(text: r["location"]?.toString() ?? "");
+
+    _originalAddress = addressCtrl.text.trim();
+
     // Status
     restaurantType = _mapResTypeToUI(r["res_type"]);
 
@@ -129,6 +135,15 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     selectedTopTab = (r["product"]?.toString() ?? "Restaurant");
     if (selectedTopTab != "Retail" && selectedTopTab != "Restaurant") {
       selectedTopTab = "Restaurant";
+    }
+
+    // VISIT DATE (Installation)
+    if (r["visit_date"] != null) {
+      createdAt = DateTime.tryParse(r["visit_date"].toString());
+    }
+    // FALLBACK ONLY
+    else if (r["created_at"] != null) {
+      createdAt = DateTime.tryParse(r["created_at"].toString());
     }
 
     // Email
@@ -165,11 +180,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     } else {
       // Covers: "Settled", null, empty, garbage
       selectedPaymentMethod = null;
-    }
-
-    // Created Date
-    if (r["created_at"] != null) {
-      createdAt = DateTime.tryParse(r["created_at"].toString());
     }
 
     // -----------------------------
@@ -276,13 +286,13 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
   // price logic
   void _recalculateCost() {
-    if (_isEditMode) return; // 🚫 DO NOT TOUCH COST IN EDIT
-
     if (selectedTopTab == "Retail") {
       costCtrl.text = retailFixedPrice.toString();
     } else {
       int total = 0;
-      for (var p in selectedPos) total += posPrices[p] ?? 0;
+      for (var p in selectedPos) {
+        total += posPrices[p] ?? 0;
+      }
       costCtrl.text = total.toString();
     }
 
@@ -376,48 +386,50 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     }
   }
 
+  Future<Map<String, String>> _geocodeAddress(String address) async {
+    final locations = await locationFromAddress(address);
+
+    if (locations.isEmpty) {
+      throw Exception("Unable to geocode address");
+    }
+
+    return {
+      "latitude": locations.first.latitude.toString(),
+      "longitude": locations.first.longitude.toString(),
+    };
+  }
+
   // ------------------ update send to backend ------------------
   Future<void> _updateRestaurant() async {
     setState(() => isLoading = true);
 
     final fullAddress = addressCtrl.text.trim();
-
     final loc = await LocationService.getLocationDetails();
 
-    // Payment calculations
-    final double toPayValue = double.tryParse(toPayCtrl.text) ?? 0;
-    final double amountPaid = _sumDeposits;
-    final double balanceValue = (toPayValue - amountPaid).clamp(
-      0.0,
-      double.infinity,
-    );
-
-    // Your backend DOES NOT store JSON deposit history.
-    // payment_detials is only a plain string (Card / Cash / Online-UPI / Settled)
-    String paymentDetialsPayload = selectedPaymentMethod ?? "";
-
-    // Convert UI discount (10) → backend decimal (0.10)
-    String backendDiscount = discountCtrl.text.trim();
+    // 🔑 ALWAYS determine backend res_type
+    final String backendResType =
+        _mapUiToBackendResType(restaurantType!) ??
+        r["res_type"].toString(); // fallback to DB value
 
     bool ok = false;
 
-    // --------------------------------------------------------
-    // CASE 1: Conversion (send all conversion fields)
-    // --------------------------------------------------------
-    if (restaurantType?.toLowerCase() == "conversion") {
+    // -------------------------------
+    // CONVERSION
+    // -------------------------------
+    if (backendResType == "conversion") {
       ok = await RestaurantService.updateRestaurant(
-        r["id"],
-        "conversion",
+        id: r["id"],
+        resType: backendResType,
         name: nameCtrl.text,
         email: emailCtrl.text,
         product: selectedTopTab,
         posMulti: selectedPos.join(","),
         cost: costCtrl.text,
-        discount: backendDiscount,
-        toPay: toPayValue.toStringAsFixed(0),
-        amountPaid: amountPaid.toStringAsFixed(0),
-        balance: balanceValue.toStringAsFixed(0),
-        paymentDetails: paymentDetialsPayload,
+        discount: discountCtrl.text.trim(),
+        toPay: toPayCtrl.text,
+        amountPaid: _sumDeposits.toStringAsFixed(0),
+        balance: _sumDeposits.toStringAsFixed(0),
+        paymentDetails: selectedPaymentMethod,
         contact: contactCtrl.text,
         phone: phoneCtrl.text,
         location: fullAddress,
@@ -425,35 +437,48 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
         longitude: loc["longitude"].toString(),
       );
     }
+    // -------------------------------
     // CLOSED
-    else if (restaurantType?.toLowerCase() == "closed") {
-      ok = await RestaurantService.updateRestaurant(
-        r["id"],
-        "closed",
-        closedReason: commentCtrl.text,
-      );
-    }
-    // ✅ ALL OTHER STATUS TYPES
-    else {
-      final backendResType = _mapUiToBackendResType(restaurantType!);
+    // -------------------------------
+    else if (backendResType == "closed") {
+      if (commentCtrl.text.trim().isEmpty) {
+        _toast("Please enter closed reason");
+        setState(() => isLoading = false);
+        return;
+      }
 
       ok = await RestaurantService.updateRestaurant(
-        r["id"],
-        backendResType,
+        id: r["id"],
+        resType: "closed",
+        closedReason: commentCtrl.text.trim(),
+        location: fullAddress,
+        latitude: loc["latitude"].toString(),
+        longitude: loc["longitude"].toString(),
+      );
+    }
+    // -------------------------------
+    // LEADS / FOLLOWS / INSTALLATION
+    // -------------------------------
+    else {
+      ok = await RestaurantService.updateRestaurant(
+        id: r["id"],
+        resType: backendResType, // ✅ REQUIRED
         name: nameCtrl.text,
         contact: contactCtrl.text,
         phone: phoneCtrl.text,
         location: fullAddress,
         latitude: loc["latitude"].toString(),
         longitude: loc["longitude"].toString(),
-        visitDate: createdAt?.toIso8601String(),
+        visitDate: backendResType == "installation"
+            ? createdAt?.toIso8601String().split("T").first
+            : null,
       );
     }
 
     setState(() => isLoading = false);
 
-    if (ok) {
-      if (mounted) Navigator.pop(context, true);
+    if (ok && mounted) {
+      Navigator.pop(context, true);
     } else {
       _toast("Update failed. Check backend logs.");
     }
@@ -902,9 +927,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                                 setState(() {
                                   selectedPos.add(value);
                                 });
-                                if (!_isEditMode) {
-                                  _recalculateCost();
-                                }
+                                _recalculateCost(); // ✅ FORCE RECALC
                               }
                             },
                           ),
@@ -941,10 +964,9 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                                         setState(() {
                                           selectedPos.remove(pos);
                                         });
-                                        if (!_isEditMode) {
-                                          _recalculateCost();
-                                        }
+                                        _recalculateCost();
                                       },
+
                                       child: const Icon(
                                         Icons.close,
                                         color: Colors.white,

@@ -20,15 +20,22 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  /// -------------------------------------------------
+  /// User Login Fields
+  /// -------------------------------------------------
   final email = TextEditingController();
   final password = TextEditingController();
 
+  /// -------------------------------------------------
+  /// Automatically fills email in email field
+  /// -------------------------------------------------
   static const String companyDomain = "@efficient-works.com";
-
   String get fullEmail => "${email.text.trim()}$companyDomain";
 
+  /// -------------------------------------------------
+  /// Secure Storage to Store Login Details
+  /// -------------------------------------------------
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
-
   bool _showPassword = false;
   bool _isLoading = false;
   bool _rememberMe = false;
@@ -53,6 +60,9 @@ class _LoginPageState extends State<LoginPage> {
     _loadSavedCredentials();
   }
 
+  /// -------------------------------------------------
+  /// Save credentials securely (local encrypted storage)
+  /// -------------------------------------------------
   Future<void> _loadSavedCredentials() async {
     try {
       final savedEmail = await secureStorage.read(key: "saved_email");
@@ -126,6 +136,7 @@ class _LoginPageState extends State<LoginPage> {
     await prefs.setBool("loggedIn", true);
   }
 
+  //Forgot Passowrod MSG
   void _forgotPassword() {
     if (email.text.isEmpty) {
       _showError("Please enter your email first");
@@ -155,8 +166,8 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    if (!RegExp(r'^[0-9]{10}$').hasMatch(password.text)) {
-      _showError("Password must be a 10-digit code");
+    if (!RegExp(r'^[0-9]{4}$').hasMatch(password.text)) {
+      _showError("Password must be a 4-digit code");
       return;
     }
 
@@ -219,7 +230,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // --------------------------------------------------
-  // UI (unchanged)
+  // UI Login Box
   // --------------------------------------------------
   @override
   Widget build(BuildContext context) {
@@ -305,7 +316,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               Checkbox(
                 value: _rememberMe,
-                activeColor: const Color.fromARGB(255, 193, 42, 12),
+                activeColor: const Color.fromARGB(255, 107, 217, 85),
                 onChanged: (value) {
                   setState(() => _rememberMe = value ?? false);
                 },
@@ -336,13 +347,8 @@ class _LoginPageState extends State<LoginPage> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _validateAndLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(
-            255,
-            146,
-            134,
-            134,
-          ).withOpacity(0.2),
-          foregroundColor: Colors.white,
+          backgroundColor: const Color.fromARGB(255, 104, 63, 194),
+          // foregroundColor: const Color.fromARGB(255, 24, 24, 111),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
@@ -355,7 +361,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    Color.fromARGB(255, 196, 190, 203),
+                    Color.fromARGB(255, 103, 23, 196),
                   ),
                 ),
               )
@@ -363,7 +369,7 @@ class _LoginPageState extends State<LoginPage> {
                 "Login",
                 style: TextStyle(
                   fontSize: 20,
-                  color: Color.fromARGB(255, 206, 37, 7),
+                  color: Color.fromARGB(255, 98, 231, 98),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -404,7 +410,7 @@ class _LoginPageState extends State<LoginPage> {
               inputFormatters: isPasswordField
                   ? [
                       FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
+                      LengthLimitingTextInputFormatter(4),
                     ]
                   : null,
 

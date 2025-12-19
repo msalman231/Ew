@@ -64,10 +64,10 @@ class RestaurantService {
   }
 
   // UPDATE restaurant (PUT). Includes payment fields.
-  static Future<bool> updateRestaurant(
-    int id,
-    String resType, {
-    String? visitDate, // ✅ ADD THIS
+  static Future<bool> updateRestaurant({
+    required int id,
+    String? resType,
+    String? visitDate,
     String? name,
     String? email,
     String? product,
@@ -89,8 +89,7 @@ class RestaurantService {
 
     Map<String, dynamic> body = {
       "id": id,
-      "res_type": resType,
-      "created_at": visitDate, // ✅ SEND DATE
+      "visit_date": visitDate,
       "name": name,
       "email": email,
       "product": product,
@@ -108,6 +107,10 @@ class RestaurantService {
       "longitude": longitude,
       "closed_reason": closedReason,
     };
+
+    if (resType != null) {
+      body["res_type"] = resType;
+    }
 
     body.removeWhere((k, v) => v == null || v.toString().trim().isEmpty);
 

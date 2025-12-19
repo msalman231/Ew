@@ -48,6 +48,11 @@ class _AdminHomePageState extends State<AdminHomePage> {
     });
   }
 
+  String _todayDate() {
+    final now = DateTime.now();
+    return "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+  }
+
   Future<void> _resetIfNewDay() async {
     final prefs = await SharedPreferences.getInstance();
     final today =
@@ -81,18 +86,27 @@ class _AdminHomePageState extends State<AdminHomePage> {
   // ----------------------------------------------------------------------
   Future<void> doCheckIn() async {
     final now = TimeOfDay.now();
+    final prefs = await SharedPreferences.getInstance();
+
+    // 🔒 Preserve FIRST check-in time for UI
+    final storedCheckIn = prefs.getString("checkInTime");
 
     setState(() {
-      // New check-in should always clear old checkout
-      checkInTime = _formatTime(now);
-      checkOutTime = null;
+      if (storedCheckIn == null || storedCheckIn.isEmpty) {
+        checkInTime = _formatTime(now); // UI first time only
+      }
 
       hasCheckedIn = true;
       hasCheckedOut = false;
+      checkOutTime = null;
     });
 
-    await saveCheckState();
-    await AttendanceService.checkIn(widget.userId, widget.email);
+    // Save UI state
+    await prefs.setString("checkInTime", checkInTime!);
+    await prefs.setString("lastAttendanceDate", _todayDate());
+
+    // 🔥 DB update (ONLY required payload)
+    await AttendanceService.checkIn(widget.userId);
   }
 
   // ----------------------------------------------------------------------
@@ -100,14 +114,17 @@ class _AdminHomePageState extends State<AdminHomePage> {
   // ----------------------------------------------------------------------
   Future<void> doCheckOut() async {
     final now = TimeOfDay.now();
+    final prefs = await SharedPreferences.getInstance();
 
     setState(() {
-      hasCheckedOut = true;
       checkOutTime = _formatTime(now);
+      hasCheckedOut = true;
     });
 
-    await saveCheckState();
-    await AttendanceService.checkOut(widget.userId, widget.email);
+    await prefs.setString("checkOutTime", checkOutTime!);
+
+    // 🔥 DB update (ONLY required payload)
+    await AttendanceService.checkOut(widget.userId);
   }
 
   String _formatTime(TimeOfDay t) {

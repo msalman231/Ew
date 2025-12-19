@@ -17,6 +17,8 @@ class _UserListPageState extends State<UserListPage> {
   List<dynamic> filteredUsers = [];
   String searchQuery = "";
 
+  bool _isLaunchingMap = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,30 +70,89 @@ class _UserListPageState extends State<UserListPage> {
   }
 
   Future<void> openLiveLocation(int userId) async {
-    final loc = await getLatestLocation(userId);
-    if (loc == null) return;
+    if (_isLaunchingMap) return; // 🔒 prevent double launch
+    _isLaunchingMap = true;
 
-    final lat = loc["latitude"];
-    final lng = loc["longitude"];
+    try {
+      final loc = await getLatestLocation(userId);
 
-    final url = Uri.parse(
-      "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
-    );
+      if (!mounted) return;
 
-    await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (loc == null || loc["latitude"] == null || loc["longitude"] == null) {
+        _toast("Live location not available");
+        return;
+      }
+
+      final lat = loc["latitude"].toString();
+      final lng = loc["longitude"].toString();
+
+      final uri = Uri.parse(
+        "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+      );
+
+      if (!await canLaunchUrl(uri)) {
+        _toast("Unable to open Google Maps");
+        return;
+      }
+
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      _toast("Failed to open live location");
+    } finally {
+      // Delay unlock to avoid instant re-trigger
+      Future.delayed(const Duration(seconds: 1), () {
+        _isLaunchingMap = false;
+      });
+    }
   }
 
   Future<void> openTravelHistory(int userId) async {
-    final history = await getTravelHistory(userId);
-    if (history.isEmpty) return;
+    if (_isLaunchingMap) return;
+    _isLaunchingMap = true;
 
-    final path = history
-        .map((p) => "${p['latitude']},${p['longitude']}")
-        .join("/");
+    try {
+      final history = await getTravelHistory(userId);
 
-    final url = Uri.parse("https://www.google.com/maps/dir/$path");
+      if (!mounted) return;
 
-    await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (history.isEmpty) {
+        _toast("Travel history not available");
+        return;
+      }
+
+      // ✅ Keep only last 10 points (VERY IMPORTANT)
+      final points = history
+          .where((p) => p["latitude"] != null && p["longitude"] != null)
+          .take(10)
+          .map((p) => "${p['latitude']},${p['longitude']}")
+          .toList();
+
+      if (points.length < 2) {
+        _toast("Not enough travel points");
+        return;
+      }
+
+      final uri = Uri.parse(
+        "https://www.google.com/maps/dir/${points.join('/')}",
+      );
+
+      if (!await canLaunchUrl(uri)) {
+        _toast("Unable to open Google Maps");
+        return;
+      }
+
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      _toast("Failed to open travel history");
+    } finally {
+      Future.delayed(const Duration(seconds: 1), () {
+        _isLaunchingMap = false;
+      });
+    }
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
