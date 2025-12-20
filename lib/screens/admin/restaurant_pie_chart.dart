@@ -23,7 +23,6 @@ class RestaurantPieChart extends StatelessWidget {
     final Map<String, Color> colors = {
       "leads": Colors.blue,
       "follows": Colors.orange,
-      "future follows": Colors.cyan,
       "conversion": Colors.green,
       "installation": Colors.purple,
       "closed": Colors.red,

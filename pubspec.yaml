@@ -53,6 +53,9 @@ dependencies:
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
+
+  flutter_launcher_icons: ^0.13.1
+
   flutter_test:
     sdk: flutter
 
@@ -83,7 +86,8 @@ flutter:
     - assets/icons/search.svg
     - assets/icons/user_avatar.svg
 
-    
+
+
 
 
   # The following line ensures that the Material Icons font is

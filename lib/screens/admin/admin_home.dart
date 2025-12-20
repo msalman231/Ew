@@ -43,7 +43,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
   Future<void> _loadCheckState() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      checkInTime = prefs.getString("checkInTime");
+      checkInTime = prefs.getString("checkInTime"); 
       checkOutTime = prefs.getString("checkOutTime");
     });
   }
@@ -139,9 +139,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
   // ------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    final isCheckInDisabled = hasCheckedIn && !hasCheckedOut;
-    final isCheckOutDisabled = !hasCheckedIn || hasCheckedOut;
-
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
 

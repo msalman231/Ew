@@ -105,6 +105,10 @@ class _HomePageState extends State<HomePage> {
     _initLocationTracking();
   }
 
+  String _productType(dynamic r) {
+    return (r["product"] ?? "").toString().toLowerCase();
+  }
+
   //Check In & Check Out State
   Future<void> loadCheckState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -593,13 +597,17 @@ class _HomePageState extends State<HomePage> {
                   Container(
                     padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
+                      color: _productType(r) == "retail"
+                          ? Colors.indigo.shade50
+                          : Colors.teal.shade50,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: SvgPicture.asset(
-                      "assets/icons/restaurant.svg",
-                      height: 28,
+                      _productType(r) == "retail"
+                          ? "assets/icons/retail.svg"
+                          : "assets/icons/restaurant.svg",
                       width: 28,
+                      height: 28,
                       color: Colors.teal,
                     ),
                   ),

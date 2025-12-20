@@ -40,20 +40,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   bool _rememberMe = false;
 
-  /// -------------------------------------------------
-  /// Save credentials securely (local encrypted storage)
-  /// -------------------------------------------------
-  // Future<void> _savePasswordSecurely(String email, String passcode) async {
-  //   try {
-  //     await secureStorage.write(key: "saved_email", value: email);
-  //     await secureStorage.write(key: "saved_passcode", value: passcode);
-
-  //     debugPrint("Credentials saved securely to device.");
-  //   } catch (e) {
-  //     debugPrint("Secure storage save failed: $e");
-  //   }
-  // }
-
   @override
   void initState() {
     super.initState();

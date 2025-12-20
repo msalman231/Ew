@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
 // import 'dart:convert';
+import 'package:flutter/services.dart';
+
 import 'package:flutter_svg/flutter_svg.dart';
 // import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -82,6 +84,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   // Auto Price Fields (from your POS selection)
   double cost = 0;
   double toPay = 0;
+  final TextEditingController dateCtrl = TextEditingController();
 
   void _recalculateCost() {
     if (selectedTopTab == "Retail") {
@@ -103,6 +106,11 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     _recalculateToPay();
   }
 
+  bool _isValidPhone(String value) {
+    final phone = value.trim();
+    return RegExp(r'^\d{10}$').hasMatch(phone);
+  }
+
   bool _validateByStatus() {
     // ---------------- BASIC VALIDATION ----------------
     if (nameCtrl.text.trim().isEmpty) {
@@ -112,6 +120,11 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
 
     if (phoneCtrl.text.trim().isEmpty) {
       _toast("Phone Number is required");
+      return false;
+    }
+
+    if (!_isValidPhone(phoneCtrl.text)) {
+      _toast("Phone number must be 10 digits");
       return false;
     }
 
@@ -150,7 +163,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
           (sum, p) => sum + (p["amount"] as double),
         );
 
-        // 🔴 NEW: payment amount validation
+        // payment amount validation
         if (totalPaid <= 0) {
           _toast("Please enter payment amount");
           return false;
@@ -171,13 +184,6 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       case "Closed":
         if (reasonCtrl.text.trim().isEmpty) {
           _toast("Please enter reason for closing");
-          return false;
-        }
-        break;
-
-      case "Installation":
-        if (installationDate == null) {
-          _toast("Please select installation date");
           return false;
         }
         break;
@@ -245,29 +251,26 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     return "${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}";
   }
 
-  // void _updatePrices() {
-  //   cost = 0;
-
-  //   if (selectedPos.contains("Mobile Pos")) cost += 3000;
-  //   if (selectedPos.contains("Web Pos")) cost += 2000;
-  //   if (selectedPos.contains("Waiter App")) cost += 5000;
-
-  //   // Apply discount
-  //   final discountPercent = double.tryParse(discountCtrl.text) ?? 0;
-  //   final discountValue = cost * (discountPercent / 100);
-
-  //   toPay = cost - discountValue;
-  //   balanceDue = toPay;
-
-  //   setState(() {});
-  // }
-
   Future<void> _pickInstallationDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: installationDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(), // ✅ block future dates
+
+      initialEntryMode: DatePickerEntryMode.calendarOnly, // ⭐ KEY LINE
+
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: const InputDecorationTheme(
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
@@ -303,30 +306,37 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
 
               GestureDetector(
                 onTap: _pickInstallationDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "${installationDate.day}/${installationDate.month}/${installationDate.year}",
-                          style: const TextStyle(fontSize: 16),
+                child: AbsorbPointer(
+                  // ⬅️ prevents edit cursor / focus behavior
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "${installationDate.day}/${installationDate.month}/${installationDate.year}",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                      Icon(
-                        Icons.calendar_today,
-                        size: 20,
-                        color: Colors.grey.shade700,
-                      ),
-                    ],
+                        Icon(
+                          Icons
+                              .calendar_today, // calendar only (no edit/pencil semantics)
+                          size: 20,
+                          color: Colors.grey.shade700,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -476,35 +486,6 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       ],
     );
   }
-
-  // Widget _buildFullSettlementContainer() {
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-  //     margin: const EdgeInsets.only(top: 10),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(14),
-  //       border: Border.all(color: Colors.grey.shade300),
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         const Text(
-  //           "Settled",
-  //           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-  //         ),
-  //         Text(
-  //           "${balanceCtrl.text}", // NO £ SYMBOL
-  //           style: const TextStyle(
-  //             fontSize: 18,
-  //             fontWeight: FontWeight.bold,
-  //             color: Colors.green,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Future<void> openInGoogleMaps({
     required double latitude,
@@ -1360,101 +1341,6 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     return ok;
   }
 
-  // =============================================================
-  // UI COMPONENTS
-  // =============================================================
-
-  // Widget _sectionTitle(String title) {
-  //   return Padding(
-  //     padding: const EdgeInsets.only(bottom: 8),
-  //     child: Text(
-  //       title,
-  //       style: const TextStyle(
-  //         fontSize: 18,
-  //         fontWeight: FontWeight.bold,
-  //         color: Colors.black87,
-  //       ),
-  //     ),
-  //   );
-  // }
-
-  // Widget _card({required List<Widget> children}) {
-  //   return Container(
-  //     width: double.infinity,
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(12),
-
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black12,
-  //           blurRadius: 6,
-  //           offset: const Offset(0, 3),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: children,
-  //     ),
-  //   );
-  // }
-
-  // Widget _textField(
-  //   TextEditingController ctrl,
-  //   String label, {
-  //   TextInputType keyboard = TextInputType.text,
-  //   int? maxLen,
-  // }) {
-  //   return TextField(
-  //     controller: ctrl,
-  //     keyboardType: keyboard,
-  //     maxLength: maxLen,
-  //     decoration: InputDecoration(
-  //       labelText: label,
-  //       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-  //       filled: true,
-  //       fillColor: Colors.grey.shade100,
-  //     ),
-  //   );
-  // }
-
-  // InputDecoration _dropdownStyle(String label) {
-  //   return InputDecoration(
-  //     labelText: label,
-  //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-  //     filled: true,
-  //     fillColor: Colors.grey.shade100,
-  //   );
-  // }
-
-  // Widget _buildClosedReason() {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       _sectionTitle("Closed - Reason"),
-
-  //       _card(
-  //         children: [
-  //           TextField(
-  //             controller: reasonCtrl,
-  //             maxLines: 3,
-  //             decoration: InputDecoration(
-  //               labelText: "Reason",
-  //               border: OutlineInputBorder(
-  //                 borderRadius: BorderRadius.circular(10),
-  //               ),
-  //               filled: true,
-  //               fillColor: Colors.grey.shade100,
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ],
-  //   );
-  // }
-
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
@@ -1575,6 +1461,33 @@ class _ManualAddressPopupState extends State<ManualAddressPopup> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class DateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digitsOnly.length > 8) {
+      digitsOnly = digitsOnly.substring(0, 8);
+    }
+
+    StringBuffer buffer = StringBuffer();
+    for (int i = 0; i < digitsOnly.length; i++) {
+      buffer.write(digitsOnly[i]);
+      if ((i == 1 || i == 3) && i != digitsOnly.length - 1) {
+        buffer.write('/');
+      }
+    }
+
+    return TextEditingValue(
+      text: buffer.toString(),
+      selection: TextSelection.collapsed(offset: buffer.length),
     );
   }
 }

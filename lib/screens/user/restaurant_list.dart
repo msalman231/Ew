@@ -33,6 +33,10 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
     "Conversion": "conversion",
   };
 
+  String _productType(dynamic r) {
+    return (r["product"] ?? "").toString().toLowerCase();
+  }
+
   // helper to normalize a string safely
   String _norm(String? s) => s?.toString().trim().toLowerCase() ?? "";
 
@@ -339,11 +343,15 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.teal.shade50,
+                  color: _productType(r) == "retail"
+                      ? Colors.indigo.shade50
+                      : Colors.teal.shade50,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: SvgPicture.asset(
-                  "assets/icons/restaurant.svg",
+                  _productType(r) == "retail"
+                      ? "assets/icons/retail.svg"
+                      : "assets/icons/restaurant.svg",
                   width: 28,
                   height: 28,
                   color: Colors.teal,

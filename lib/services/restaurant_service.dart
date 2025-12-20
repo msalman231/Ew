@@ -66,6 +66,7 @@ class RestaurantService {
   // UPDATE restaurant (PUT). Includes payment fields.
   static Future<bool> updateRestaurant({
     required int id,
+    required int userId,
     String? resType,
     String? visitDate,
     String? name,
@@ -89,6 +90,7 @@ class RestaurantService {
 
     Map<String, dynamic> body = {
       "id": id,
+      "user_id": userId,
       "visit_date": visitDate,
       "name": name,
       "email": email,

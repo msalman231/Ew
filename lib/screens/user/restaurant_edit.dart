@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
 
-import 'package:geocoding/geocoding.dart';
+// import 'package:geocoding/geocoding.dart';
 
 class RestaurantEditPage extends StatefulWidget {
   final dynamic restaurant; // Map or List
@@ -372,13 +372,15 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       (double.tryParse(toPayCtrl.text) ?? 0) > 0;
 
   Future<void> _pickVisitDateIfAllowed() async {
-    if (_isEditMode == false) return; // safety if needed
+    if (_isEditMode == false) return;
 
     final picked = await showDatePicker(
       context: context,
       initialDate: createdAt ?? DateTime.now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime.now(), // ✅ no future dates
+
+      initialEntryMode: DatePickerEntryMode.calendarOnly, // ⭐ KEY LINE
     );
 
     if (picked != null) {
@@ -386,18 +388,18 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     }
   }
 
-  Future<Map<String, String>> _geocodeAddress(String address) async {
-    final locations = await locationFromAddress(address);
+  // Future<Map<String, String>> _geocodeAddress(String address) async {
+  //   final locations = await locationFromAddress(address);
 
-    if (locations.isEmpty) {
-      throw Exception("Unable to geocode address");
-    }
+  //   if (locations.isEmpty) {
+  //     throw Exception("Unable to geocode address");
+  //   }
 
-    return {
-      "latitude": locations.first.latitude.toString(),
-      "longitude": locations.first.longitude.toString(),
-    };
-  }
+  //   return {
+  //     "latitude": locations.first.latitude.toString(),
+  //     "longitude": locations.first.longitude.toString(),
+  //   };
+  // }
 
   // ------------------ update send to backend ------------------
   Future<void> _updateRestaurant() async {
@@ -409,7 +411,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // 🔑 ALWAYS determine backend res_type
     final String backendResType =
         _mapUiToBackendResType(restaurantType!) ??
-        r["res_type"].toString(); // fallback to DB value
+        r["res_type"].toString();
 
     bool ok = false;
 
@@ -418,6 +420,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // -------------------------------
     if (backendResType == "conversion") {
       ok = await RestaurantService.updateRestaurant(
+        userId: r["user_id"], // or from logged-in user session
         id: r["id"],
         resType: backendResType,
         name: nameCtrl.text,
@@ -448,6 +451,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       }
 
       ok = await RestaurantService.updateRestaurant(
+        userId: r["user_id"],
         id: r["id"],
         resType: "closed",
         closedReason: commentCtrl.text.trim(),
@@ -461,6 +465,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // -------------------------------
     else {
       ok = await RestaurantService.updateRestaurant(
+        userId: r["user_id"],
         id: r["id"],
         resType: backendResType, // ✅ REQUIRED
         name: nameCtrl.text,
@@ -833,46 +838,48 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
                   const SizedBox(height: 10),
 
                   GestureDetector(
-                    // ✅ ONLY ENABLE FOR INSTALLATION
                     onTap: restaurantType == "Installation"
                         ? _pickVisitDateIfAllowed
                         : null,
 
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: restaurantType == "Installation"
-                            ? Colors.white
-                            : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              createdAt == null
-                                  ? "Not available"
-                                  : "${createdAt!.day}/${createdAt!.month}/${createdAt!.year}",
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: restaurantType == "Installation"
-                                    ? Colors.black
-                                    : Colors.grey.shade700,
+                    child: AbsorbPointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: restaurantType == "Installation"
+                              ? Colors.white
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                createdAt == null
+                                    ? "Not available"
+                                    : "${createdAt!.day}/${createdAt!.month}/${createdAt!.year}",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: restaurantType == "Installation"
+                                      ? Colors.black
+                                      : Colors.grey.shade700,
+                                ),
                               ),
                             ),
-                          ),
-                          Icon(
-                            Icons.event,
-                            size: 20,
-                            color: restaurantType == "Installation"
-                                ? Colors.teal
-                                : Colors.grey.shade600,
-                          ),
-                        ],
+                            Icon(
+                              Icons.calendar_today,
+                              size: 20,
+                              color: restaurantType == "Installation"
+                                  ? Colors.teal
+                                  : Colors.grey.shade600,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
