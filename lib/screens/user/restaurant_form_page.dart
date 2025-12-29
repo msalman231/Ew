@@ -85,23 +85,24 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   final TextEditingController dateCtrl = TextEditingController();
 
   void _resetConversionState() {
-    // Conversion inputs
     emailCtrl.clear();
-    costCtrl.clear();
     discountCtrl.clear();
     balanceCtrl.clear();
 
-    // POS + pricing
     selectedPos.clear();
-
-    // Payments
     deposits.clear();
     depositAmountCtrl.clear();
     selectedPaymentMethod = null;
 
-    // Optional: reset installation date if needed
+    // ✅ DO NOT blindly clear cost
+    if (selectedTopTab == "Retail") {
+      costCtrl.text = retailFixedPrice.toString();
+      _recalculateToPay();
+    } else {
+      costCtrl.clear();
+    }
+
     installationDate = DateTime.now();
-    setState(() {});
   }
 
   void _recalculateCost() {
@@ -925,14 +926,15 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                   setState(() {
                     restaurantType = value;
 
+                    // Reset conversion data ONLY when leaving Conversion
                     if (value != "Conversion") {
                       _resetConversionState();
                     }
-                    if (value != "Closed") {
-                      _resetConversionState();
-                    }
-                    if (value != "Installation") {
-                      _resetConversionState();
+
+                    // ✅ If user comes BACK to Conversion and Retail is selected
+                    if (value == "Conversion" && selectedTopTab == "Retail") {
+                      costCtrl.text = retailFixedPrice.toString();
+                      _recalculateToPay();
                     }
                   });
                 },
@@ -1047,6 +1049,15 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   // ----------------------------------------------------------------
 
   Widget _buildConversionFormUI() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (restaurantType == "Conversion" &&
+          selectedTopTab == "Retail" &&
+          costCtrl.text.isEmpty) {
+        costCtrl.text = retailFixedPrice.toString();
+        _recalculateToPay();
+      }
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

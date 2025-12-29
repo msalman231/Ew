@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
 
-// import 'package:geocoding/geocoding.dart';
-
 class RestaurantEditPage extends StatefulWidget {
   final dynamic restaurant; // Map or List
   const RestaurantEditPage({super.key, required this.restaurant});
@@ -20,8 +18,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   late TextEditingController nameCtrl;
   late TextEditingController phoneCtrl;
   late TextEditingController contactCtrl;
-  late String _originalAddress;
-
   // Address controllers
   late TextEditingController addressCtrl;
 
@@ -144,8 +140,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
     addressCtrl = TextEditingController(text: r["location"]?.toString() ?? "");
 
-    _originalAddress = addressCtrl.text.trim();
-
     // Status
     restaurantType = _mapResTypeToUI(r["res_type"]);
 
@@ -204,7 +198,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     // LOAD AMOUNT PAID + BALANCE
     // -----------------------------
     final amountPaidFromDB = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
-    // final toPayFromDB = double.tryParse(_coerce(r["to_pay"])) ?? 0;
 
     // -----------------------------
     // LOAD PAYMENT HISTORY
@@ -226,15 +219,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     commentCtrl.text = r["closed_reason"]?.toString() ?? "";
   }
 
-  // String _displayDiscount(dynamic d) {
-  //   if (d == null) return "";
-  //   final parsed = double.tryParse(d.toString());
-  //   if (parsed == null) return "";
-
-  //   // DB: 0.05 → UI: 5
-  //   return (parsed * 100).toStringAsFixed(0);
-  // }
-
   Map<String, dynamic> _normalize(dynamic raw) {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is List && raw.isNotEmpty && raw.first is Map<String, dynamic>) {
@@ -247,53 +231,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     if (v == null) return "";
     return v.toString();
   }
-
-  // void _loadPaymentDetails(dynamic pd) {
-  //   deposits.clear();
-
-  //   double paid = double.tryParse(_coerce(r["amount_paid"])) ?? 0;
-
-  //   if (pd == null || pd.toString().isEmpty) {
-  //     if (paid > 0) {
-  //       deposits.add({"amount": paid, "date": _today()});
-  //     }
-  //     return;
-  //   }
-
-  //   final s = pd.toString().trim();
-
-  //   if (s.toLowerCase() == "settled") {
-  //     if (paid > 0) {
-  //       deposits.add({"amount": paid, "date": _today()});
-  //     }
-  //     return;
-  //   }
-
-  //   // Means: Card, Online-UPI, Cash
-  //   if (!s.startsWith("[") && !s.contains("{")) {
-  //     if (paid > 0) {
-  //       deposits.add({"amount": paid, "date": _today()});
-  //     }
-  //     return;
-  //   }
-
-  //   // JSON case
-  //   try {
-  //     final decoded = jsonDecode(s);
-  //     if (decoded is List) {
-  //       for (var item in decoded) {
-  //         deposits.add({
-  //           "amount": double.tryParse(item["amount"].toString()) ?? 0,
-  //           "date": item["date"] ?? _today(),
-  //         });
-  //       }
-  //     }
-  //   } catch (_) {
-  //     if (paid > 0) {
-  //       deposits.add({"amount": paid, "date": _today()});
-  //     }
-  //   }
-  // }
 
   bool get _canPay {
     final amtText = depositAmountCtrl.text.trim();
@@ -442,26 +379,13 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(), // ✅ no future dates
 
-      initialEntryMode: DatePickerEntryMode.calendarOnly, // ⭐ KEY LINE
+      initialEntryMode: DatePickerEntryMode.calendarOnly, //  KEY LINE
     );
 
     if (picked != null) {
       setState(() => createdAt = picked);
     }
   }
-
-  // Future<Map<String, String>> _geocodeAddress(String address) async {
-  //   final locations = await locationFromAddress(address);
-
-  //   if (locations.isEmpty) {
-  //     throw Exception("Unable to geocode address");
-  //   }
-
-  //   return {
-  //     "latitude": locations.first.latitude.toString(),
-  //     "longitude": locations.first.longitude.toString(),
-  //   };
-  // }
 
   // ------------------ update send to backend ------------------
   Future<void> _updateRestaurant() async {
@@ -471,8 +395,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     final loc = await LocationService.getLocationDetails();
 
     // 🔑 ALWAYS determine backend res_type
-    final String backendResType =
-        _mapUiToBackendResType(restaurantType!) ?? r["res_type"].toString();
+    final String backendResType = _mapUiToBackendResType(restaurantType!);
 
     bool ok = false;
 
