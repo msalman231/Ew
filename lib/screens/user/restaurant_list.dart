@@ -30,7 +30,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
     "Follows": "follows",
     "Closed": "closed",
     "Installation": "installation",
-    "Conversion": "conversion",
+    "Conversion": "conversion", 
   };
 
   String _productType(dynamic r) {

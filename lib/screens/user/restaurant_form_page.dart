@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/location_service.dart';
 import '../../services/restaurant_service.dart';
-// import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
-// import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RestaurantFormPage extends StatefulWidget {
@@ -85,6 +83,26 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
   double cost = 0;
   double toPay = 0;
   final TextEditingController dateCtrl = TextEditingController();
+
+  void _resetConversionState() {
+    // Conversion inputs
+    emailCtrl.clear();
+    costCtrl.clear();
+    discountCtrl.clear();
+    balanceCtrl.clear();
+
+    // POS + pricing
+    selectedPos.clear();
+
+    // Payments
+    deposits.clear();
+    depositAmountCtrl.clear();
+    selectedPaymentMethod = null;
+
+    // Optional: reset installation date if needed
+    installationDate = DateTime.now();
+    setState(() {});
+  }
 
   void _recalculateCost() {
     if (selectedTopTab == "Retail") {
@@ -674,6 +692,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                           selectedPos.clear(); // restaurant POS reset
                           costCtrl.text = ""; // clear cost
                           balanceCtrl.text = ""; // clear ToPay
+                          _resetConversionState();
                         });
                       },
 
@@ -722,12 +741,14 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                       onTap: () {
                         setState(() {
                           selectedTopTab = "Retail";
-                          selectedPos.clear();
 
-                          // SET COST = 5000 for Retail
+                          //CLEAR ALL RESTAURANT / CONVERSION DATA
+                          _resetConversionState();
+
+                          // Retail fixed price
                           costCtrl.text = retailFixedPrice.toString();
 
-                          // APPLY DISCOUNT IF EXISTS
+                          // Recalculate To Pay (after discount = 0)
                           _recalculateToPay();
                         });
                       },
@@ -901,7 +922,19 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
                 onChanged: (value) {
-                  setState(() => restaurantType = value);
+                  setState(() {
+                    restaurantType = value;
+
+                    if (value != "Conversion") {
+                      _resetConversionState();
+                    }
+                    if (value != "Closed") {
+                      _resetConversionState();
+                    }
+                    if (value != "Installation") {
+                      _resetConversionState();
+                    }
+                  });
                 },
               ),
             ),

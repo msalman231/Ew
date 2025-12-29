@@ -94,6 +94,24 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     }
   }
 
+  void _resetConversionForRetail() {
+    // POS & pricing
+    selectedPos.clear();
+    costCtrl.clear();
+    discountCtrl.clear();
+    toPayCtrl.clear();
+
+    // Payments
+    deposits.clear();
+    depositAmountCtrl.clear();
+    selectedPaymentMethod = null;
+
+    // Email (conversion specific)
+    emailCtrl.clear();
+
+    setState(() {});
+  }
+
   String _mapUiToBackendResType(String ui) {
     switch (ui) {
       case "Leads":
@@ -284,6 +302,50 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     return selectedPaymentMethod != null && amt > 0;
   }
 
+  Future<void> _confirmSwitchToRetail() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text(
+            "Change to Retail?",
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const Text(
+            "Would you like to change the Restaurant POS to Retail POS?\n\n"
+            "This will clear all Restaurant conversion details.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("No"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade700,
+              ),
+              child: const Text("Yes"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      setState(() {
+        selectedTopTab = "Retail";
+
+        _resetConversionForRetail();
+
+        // Force retail price
+        costCtrl.text = retailFixedPrice.toString();
+        _recalculateToPay();
+      });
+    }
+  }
+
   // price logic
   void _recalculateCost() {
     if (selectedTopTab == "Retail") {
@@ -410,8 +472,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
 
     // 🔑 ALWAYS determine backend res_type
     final String backendResType =
-        _mapUiToBackendResType(restaurantType!) ??
-        r["res_type"].toString();
+        _mapUiToBackendResType(restaurantType!) ?? r["res_type"].toString();
 
     bool ok = false;
 
@@ -649,19 +710,35 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
   // ---------------- UI helpers ----------------
   Widget _tabItem(String label) {
     final active = selectedTopTab == label;
+
     return Expanded(
       child: GestureDetector(
-        onTap: () {
+        onTap: () async {
+          if (label == selectedTopTab) return;
+
+          //  EDIT MODE + Restaurant → Retail
+          if (_isEditMode &&
+              selectedTopTab == "Restaurant" &&
+              label == "Retail") {
+            await _confirmSwitchToRetail();
+            return;
+          }
+
+          // Normal switch (Retail → Restaurant OR others)
           setState(() {
             selectedTopTab = label;
+
             selectedPos.clear();
 
-            if (!_isEditMode) {
-              _recalculateCost();
+            if (label == "Retail") {
+              costCtrl.text = retailFixedPrice.toString();
+            } else {
+              costCtrl.text = "0";
             }
+
+            _recalculateToPay();
           });
         },
-
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
