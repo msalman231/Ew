@@ -90,24 +90,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     }
   }
 
-  void _resetConversionForRetail() {
-    // POS & pricing
-    selectedPos.clear();
-    costCtrl.clear();
-    discountCtrl.clear();
-    toPayCtrl.clear();
-
-    // Payments
-    deposits.clear();
-    depositAmountCtrl.clear();
-    selectedPaymentMethod = null;
-
-    // Email (conversion specific)
-    emailCtrl.clear();
-
-    setState(() {});
-  }
-
   String _mapUiToBackendResType(String ui) {
     switch (ui) {
       case "Leads":
@@ -239,50 +221,6 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     return selectedPaymentMethod != null && amt > 0;
   }
 
-  Future<void> _confirmSwitchToRetail() async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text(
-            "Change to Retail?",
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: const Text(
-            "Would you like to change the Restaurant POS to Retail POS?\n\n"
-            "This will clear all Restaurant conversion details.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("No"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade700,
-              ),
-              child: const Text("Yes"),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result == true) {
-      setState(() {
-        selectedTopTab = "Retail";
-
-        _resetConversionForRetail();
-
-        // Force retail price
-        costCtrl.text = retailFixedPrice.toString();
-        _recalculateToPay();
-      });
-    }
-  }
-
   // price logic
   void _recalculateCost() {
     if (selectedTopTab == "Retail") {
@@ -385,6 +323,41 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     if (picked != null) {
       setState(() => createdAt = picked);
     }
+  }
+
+  Future<bool> _confirmProductSwitch({
+    required String from,
+    required String to,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          "Change Product Type?",
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          "You are changing from $from to $to.\n\n"
+          "This will clear POS, pricing, discount, and payment details.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+            ),
+            child: const Text("Confirm"),
+          ),
+        ],
+      ),
+    );
+
+    return result == true;
   }
 
   // ------------------ update send to backend ------------------
@@ -639,19 +612,25 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
         onTap: () async {
           if (label == selectedTopTab) return;
 
-          //  EDIT MODE + Restaurant → Retail
-          if (_isEditMode &&
-              selectedTopTab == "Restaurant" &&
-              label == "Retail") {
-            await _confirmSwitchToRetail();
-            return;
-          }
+          final confirmed = await _confirmProductSwitch(
+            from: selectedTopTab,
+            to: label,
+          );
 
-          // Normal switch (Retail → Restaurant OR others)
+          if (!confirmed) return;
+
           setState(() {
             selectedTopTab = label;
 
+            // 🔥 RESET ALL PRODUCT-SENSITIVE DATA
             selectedPos.clear();
+            deposits.clear();
+            depositAmountCtrl.clear();
+            selectedPaymentMethod = null;
+
+            emailCtrl.clear();
+            discountCtrl.clear();
+            toPayCtrl.clear();
 
             if (label == "Retail") {
               costCtrl.text = retailFixedPrice.toString();

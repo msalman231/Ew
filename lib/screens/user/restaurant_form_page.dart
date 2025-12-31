@@ -297,6 +297,113 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     }
   }
 
+  Future<void> _showRetailConfirmation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "Retail Selection",
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          "Retail has a fixed price of ₹5000. Do you want to continue?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+            ),
+            child: const Text("Continue"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        selectedTopTab = "Retail";
+        _resetConversionState();
+        costCtrl.text = retailFixedPrice.toString();
+        _recalculateToPay();
+      });
+    }
+  }
+
+  Future<bool> _confirmProductSwitch({
+    required String from,
+    required String to,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          "Change Product Type?",
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          "You are changing from $from to $to.\n\n"
+          "This will clear POS, pricing, discount, and payment details.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+            ),
+            child: const Text("Confirm"),
+          ),
+        ],
+      ),
+    );
+
+    return result == true;
+  }
+
+  Future<void> _onProductTabChange(String nextTab) async {
+    if (nextTab == selectedTopTab) return;
+
+    final confirmed = await _confirmProductSwitch(
+      from: selectedTopTab,
+      to: nextTab,
+    );
+
+    if (!confirmed) return;
+
+    setState(() {
+      selectedTopTab = nextTab;
+
+      // 🔥 RESET CONVERSION STATE
+      selectedPos.clear();
+      deposits.clear();
+      depositAmountCtrl.clear();
+      selectedPaymentMethod = null;
+
+      emailCtrl.clear();
+      discountCtrl.clear();
+      balanceCtrl.clear();
+
+      if (nextTab == "Retail") {
+        costCtrl.text = retailFixedPrice.toString();
+      } else {
+        costCtrl.clear();
+      }
+
+      _recalculateToPay();
+    });
+  }
+
   Widget _buildInstallationDateUI() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,6 +797,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                       onTap: () {
                         setState(() {
                           selectedTopTab = "Restaurant";
+                          _onProductTabChange("Restaurant");
                           selectedPos.clear(); // restaurant POS reset
                           costCtrl.text = ""; // clear cost
                           balanceCtrl.text = ""; // clear ToPay
@@ -746,8 +854,11 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                           //CLEAR ALL RESTAURANT / CONVERSION DATA
                           _resetConversionState();
 
+                          _onProductTabChange("Retail");
                           // Retail fixed price
                           costCtrl.text = retailFixedPrice.toString();
+
+                          _showRetailConfirmation();
 
                           // Recalculate To Pay (after discount = 0)
                           _recalculateToPay();
