@@ -94,7 +94,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     depositAmountCtrl.clear();
     selectedPaymentMethod = null;
 
-    // ✅ DO NOT blindly clear cost
+    // DO NOT blindly clear cost
     if (selectedTopTab == "Retail") {
       costCtrl.text = retailFixedPrice.toString();
       _recalculateToPay();
@@ -275,9 +275,9 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
       context: context,
       initialDate: installationDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime.now(), // ✅ block future dates
+      lastDate: DateTime.now(), //block future dates
 
-      initialEntryMode: DatePickerEntryMode.calendarOnly, // ⭐ KEY LINE
+      initialEntryMode: DatePickerEntryMode.calendarOnly, // KEY LINE
 
       builder: (context, child) {
         return Theme(
@@ -384,7 +384,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
     setState(() {
       selectedTopTab = nextTab;
 
-      // 🔥 RESET CONVERSION STATE
+      // RESET CONVERSION STATE
       selectedPos.clear();
       deposits.clear();
       depositAmountCtrl.clear();
@@ -433,7 +433,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
               GestureDetector(
                 onTap: _pickInstallationDate,
                 child: AbsorbPointer(
-                  // ⬅️ prevents edit cursor / focus behavior
+                  // prevents edit cursor / focus behavior
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -1042,7 +1042,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                       _resetConversionState();
                     }
 
-                    // ✅ If user comes BACK to Conversion and Retail is selected
+                    // If user comes BACK to Conversion and Retail is selected
                     if (value == "Conversion" && selectedTopTab == "Retail") {
                       costCtrl.text = retailFixedPrice.toString();
                       _recalculateToPay();
@@ -1072,7 +1072,7 @@ class _RestaurantFormPageState extends State<RestaurantFormPage> {
                 onPressed: isLoading
                     ? null
                     : () async {
-                        if (!_validateByStatus()) return; // ⛔ STOP HERE
+                        if (!_validateByStatus()) return; // STOP HERE
 
                         setState(() => isLoading = true);
 
