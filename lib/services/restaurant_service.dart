@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:efficient_works/config/constants.dart';
 
@@ -157,6 +158,8 @@ class RestaurantService {
     final res = await http.get(
       Uri.parse("${AppConfig.baseUrl}/restaurants_role"),
     );
+    // debugPrint("STATUS: ${res.statusCode}");
+    // debugPrint("BODY: ${res.body}");
     return res.statusCode == 200 ? jsonDecode(res.body) : [];
   }
 
