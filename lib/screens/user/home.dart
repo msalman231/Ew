@@ -237,7 +237,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Color(0xFFF3F4F6),
 
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -247,6 +247,22 @@ class _HomePageState extends State<HomePage> {
           "Home",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.teal.shade300,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () => _showLogoutPopup(context),
+                color: Color(0xFFFFFFFF),
+              ),
+            ),
+          ),
+        ],
       ),
 
       bottomNavigationBar: _bottomNavBar(),
@@ -274,8 +290,15 @@ class _HomePageState extends State<HomePage> {
   // GREETING
   // ----------------------------------------------------------------------
   Widget _greeting() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Color(0xFFE0F7F4),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.teal.shade100, width: 1),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -287,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  "Good Morning ${widget.username}",
+                  "Welcome ${widget.username}",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -296,11 +319,11 @@ class _HomePageState extends State<HomePage> {
 
           CircleAvatar(
             radius: 26,
-            backgroundColor: Colors.grey.shade200,
+            backgroundColor: Color(0xFFFFFFFF),
             child: SvgPicture.asset(
               "assets/icons/user_avatar.svg",
-              width: 26,
-              height: 26,
+              width: 35,
+              height: 35,
             ),
           ),
         ],
@@ -747,6 +770,38 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // LOGOUT POPUP
+  void _showLogoutPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text(
+              "Logout",
+              style: TextStyle(color: Color(0xFFFFFFFF)),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                "/login",
+                (_) => false,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // ----------------------------------------------------------------------
   // BOTTOM NAVIGATION BAR
   // ----------------------------------------------------------------------
@@ -756,7 +811,7 @@ class _HomePageState extends State<HomePage> {
       selectedItemColor: Colors.teal,
       unselectedItemColor: Colors.grey.shade600,
       showUnselectedLabels: true,
-
+      backgroundColor: Color(0xFFFFFFFF),
       onTap: (index) {
         if (index == 1) {
           Navigator.push(

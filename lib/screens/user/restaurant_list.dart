@@ -30,7 +30,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
     "Follows": "follows",
     "Closed": "closed",
     "Installation": "installation",
-    "Conversion": "conversion", 
+    "Conversion": "conversion",
   };
 
   String _productType(dynamic r) {
@@ -483,6 +483,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: Colors.teal,
         title: const Text("My Leads", style: TextStyle(color: Colors.white)),
@@ -530,6 +531,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       selectedItemColor: Colors.teal,
       unselectedItemColor: Colors.grey.shade600,
       showUnselectedLabels: true,
+      backgroundColor: Color(0xFFFFFFFF),
 
       onTap: (index) {
         if (index == 0) Navigator.pop(context);

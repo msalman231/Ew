@@ -351,7 +351,10 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal.shade700,
             ),
-            child: const Text("Confirm"),
+            child: const Text(
+              "Confirm",
+              style: TextStyle(color: Color(0xFFFFFFFF)),
+            ),
           ),
         ],
       ),
@@ -690,7 +693,7 @@ class _RestaurantEditPageState extends State<RestaurantEditPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.teal.shade700,
-        title: const Text("Edit Visit"),
+        title: Text("Edit Visit", style: TextStyle(color: Color(0xFFFFFFFF))),
       ),
       backgroundColor: Colors.grey.shade100,
       body: SingleChildScrollView(

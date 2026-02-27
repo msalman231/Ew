@@ -196,7 +196,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
 
     return Container(
       margin: const EdgeInsets.only(left: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -516,6 +516,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
         // automaticallyImplyLeading: false,
@@ -592,7 +593,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       selectedItemColor: Colors.deepPurple,
       unselectedItemColor: Colors.grey.shade600,
       showUnselectedLabels: true,
-
+      backgroundColor: Color(0xFFFFFFFF),
       onTap: (index) {
         if (index == 0) Navigator.pop(context);
       },

@@ -297,7 +297,7 @@ class _LoginPageState extends State<LoginPage> {
               setState(() => _showPassword = !_showPassword);
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Row(
             children: [
               Checkbox(
@@ -308,17 +308,17 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
               const Text("Remember Me", style: TextStyle(color: Colors.white)),
-              const Spacer(),
-              TextButton(
-                onPressed: _forgotPassword,
-                child: const Text(
-                  "Forgot Password?",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              // const Spacer(),
+              // TextButton(
+              //   onPressed: _forgotPassword,
+              //   child: const Text(
+              //     "Forgot Password?",
+              //     style: TextStyle(
+              //       color: Colors.white,
+              //       fontWeight: FontWeight.w600,
+              //     ),
+              //   ),
+              // ),
             ],
           ),
           _loginButton(),
@@ -403,7 +403,7 @@ class _LoginPageState extends State<LoginPage> {
               style: const TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w600,
-                fontSize: 20,
+                fontSize: 14,
               ),
               decoration: InputDecoration(
                 hintText: hint,
@@ -428,7 +428,7 @@ class _LoginPageState extends State<LoginPage> {
                 "@efficient-works.com",
                 style: TextStyle(
                   color: Colors.white,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

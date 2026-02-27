@@ -1,5 +1,6 @@
 import 'package:efficient_works/services/restaurant_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/attendance_service.dart';
 import 'user_list_page.dart';
@@ -43,7 +44,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
   Future<void> _loadCheckState() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      checkInTime = prefs.getString("checkInTime"); 
+      checkInTime = prefs.getString("checkInTime");
       checkOutTime = prefs.getString("checkOutTime");
     });
   }
@@ -140,15 +141,25 @@ class _AdminHomePageState extends State<AdminHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade200,
+      backgroundColor: Color(0xFFF3F4F6),
 
       appBar: AppBar(
-        title: const Text("Admin Home"),
+        title: Text("Admin Home", style: TextStyle(color: Color(0xFFFFFFFF))),
         backgroundColor: Colors.deepPurple,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _showLogoutPopup(context),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade400,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () => _showLogoutPopup(context),
+                color: Color(0xFFFFFFFF),
+              ),
+            ),
           ),
         ],
       ),
@@ -211,8 +222,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
   }
 
   Widget _greeting() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        // color: Color(0xFFE0F7F4),
+        color: Color(0xFFD6E4FF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.blue.shade900, width: 1),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -224,7 +243,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  "Good Morning ${widget.username}",
+                  "Welcome ${widget.username}",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -233,8 +252,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
           CircleAvatar(
             radius: 26,
-            backgroundColor: Colors.grey.shade200,
-            backgroundImage: AssetImage("assets/images/user_avatar.png"),
+            backgroundColor: Color(0xFFFFFFFF),
+            // backgroundImage: AssetImage("assets/images/user_avatar.png"),
+            child: SvgPicture.asset(
+              "assets/icons/user_avatar.svg",
+              width: 35,
+              height: 35,
+            ),
           ),
         ],
       ),
@@ -255,9 +279,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Color(0xFFE0F7F4),
+        // color: Color(0xFFE0F7F4),
+        color: Color(0xFFD6E4FF),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.teal.shade100, width: 1),
+        border: Border.all(color: Colors.blue.shade900, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -287,14 +312,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
               _styledButton(
                 label: "Check In",
                 icon: Icons.login,
-                color: Colors.teal,
+                color: Colors.deepPurple,
                 disabled: isCheckInDisabled,
                 onTap: () async => await doCheckIn(),
               ),
               _styledButton(
                 label: "Check Out",
                 icon: Icons.logout,
-                color: Colors.teal.shade300,
+                color: Colors.deepPurple,
                 disabled: isCheckOutDisabled,
                 onTap: () async => await doCheckOut(),
               ),
@@ -336,7 +361,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
           height: 50,
           margin: EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
-            color: disabled ? Colors.teal.shade100 : color,
+            color: disabled ? Colors.deepPurple.shade200 : color,
             borderRadius: BorderRadius.circular(40), // Capsule button
             boxShadow: [
               if (!disabled)
@@ -407,7 +432,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Logout"),
+            child: Text("Logout", style: TextStyle(color: Color(0xFFFFFFFF))),
             onPressed: () {
               Navigator.pop(context);
               Navigator.pushNamedAndRemoveUntil(
@@ -432,18 +457,35 @@ class _AdminHomePageState extends State<AdminHomePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          IconButton(
-            icon: const Icon(Icons.people, size: 32),
-            onPressed: () => Navigator.push(
+          // Users Button
+          InkWell(
+            onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const UserListPage()),
             ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.people, size: 30),
+                SizedBox(height: 4),
+                Text("Users", style: TextStyle(fontSize: 12)),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.restaurant_menu, size: 32),
-            onPressed: () => Navigator.push(
+
+          // Restaurant Button
+          InkWell(
+            onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const RestaurantListPage()),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.restaurant_menu, size: 30),
+                SizedBox(height: 4),
+                Text("Restaurants", style: TextStyle(fontSize: 12)),
+              ],
             ),
           ),
         ],
