@@ -450,9 +450,17 @@ class _AdminHomePageState extends State<AdminHomePage> {
   Widget _bottomMenu(BuildContext context) {
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2), // Negative offset for top shadow
+            spreadRadius: 0,
+          ),
+        ],
+        // border: Border(top: BorderSide(color: Colors.grey)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,

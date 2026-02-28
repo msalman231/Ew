@@ -242,7 +242,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.teal,
-        centerTitle: true,
+        // centerTitle: true,
         title: const Text(
           "Home",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -806,58 +806,70 @@ class _HomePageState extends State<HomePage> {
   // BOTTOM NAVIGATION BAR
   // ----------------------------------------------------------------------
   Widget _bottomNavBar() {
-    return BottomNavigationBar(
-      currentIndex: 0,
-      selectedItemColor: Colors.teal,
-      unselectedItemColor: Colors.grey.shade600,
-      showUnselectedLabels: true,
-      backgroundColor: Color(0xFFFFFFFF),
-      onTap: (index) {
-        if (index == 1) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RestaurantListPage(userId: widget.userId),
-            ),
-          );
-        }
-      },
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -2), // Negative offset for top shadow
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: 0,
+        selectedItemColor: Colors.teal,
+        unselectedItemColor: Colors.grey.shade600,
+        showUnselectedLabels: true,
+        backgroundColor: Color(0xFFFFFFFF),
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RestaurantListPage(userId: widget.userId),
+              ),
+            );
+          }
+        },
 
-      items: [
-        BottomNavigationBarItem(
-          icon: SvgPicture.asset(
-            "assets/icons/home.svg",
-            width: 26,
-            colorFilter: ColorFilter.mode(
-              Colors.grey.shade600,
-              BlendMode.srcIn,
+        items: [
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              width: 26,
+              colorFilter: ColorFilter.mode(
+                Colors.grey.shade600,
+                BlendMode.srcIn,
+              ),
             ),
+            activeIcon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              width: 28,
+              colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
+            ),
+            label: "Home",
           ),
-          activeIcon: SvgPicture.asset(
-            "assets/icons/home.svg",
-            width: 28,
-            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
-          ),
-          label: "Home",
-        ),
 
-        BottomNavigationBarItem(
-          icon: SvgPicture.asset(
-            "assets/icons/leads.svg",
-            width: 26,
-            colorFilter: ColorFilter.mode(
-              Colors.grey.shade600,
-              BlendMode.srcIn,
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/leads.svg",
+              width: 26,
+              colorFilter: ColorFilter.mode(
+                Colors.grey.shade600,
+                BlendMode.srcIn,
+              ),
             ),
+            activeIcon: SvgPicture.asset(
+              "assets/icons/leads.svg",
+              width: 28,
+              colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
+            ),
+            label: "My Leads",
           ),
-          activeIcon: SvgPicture.asset(
-            "assets/icons/leads.svg",
-            width: 28,
-            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
-          ),
-          label: "My Leads",
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -58,6 +58,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
         filteredList = list;
         isLoading = false;
       });
+      applyFilters();
     } catch (e) {
       setState(() => isLoading = false);
       ScaffoldMessenger.of(
@@ -560,12 +561,36 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
                       ),
                     )
                   : filteredList.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(50),
-                        child: Text(
-                          'No restaurants found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ? Container(
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              "No Data Found",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              "No restaurants match your filter criteria",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -588,57 +613,69 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   // BOTTOM NAVIGATION BAR
   // ----------------------------------------------------------------------
   Widget _bottomNavBar() {
-    return BottomNavigationBar(
-      currentIndex: 1,
-      selectedItemColor: Colors.deepPurple,
-      unselectedItemColor: Colors.grey.shade600,
-      showUnselectedLabels: true,
-      backgroundColor: Color(0xFFFFFFFF),
-      onTap: (index) {
-        if (index == 0) Navigator.pop(context);
-      },
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -2), // Negative offset for top shadow
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: 1,
+        selectedItemColor: Colors.deepPurple,
+        unselectedItemColor: Colors.grey.shade600,
+        showUnselectedLabels: true,
+        backgroundColor: Color(0xFFFFFFFF),
+        onTap: (index) {
+          if (index == 0) Navigator.pop(context);
+        },
 
-      items: [
-        BottomNavigationBarItem(
-          icon: SvgPicture.asset(
-            "assets/icons/home.svg",
-            width: 26,
-            colorFilter: ColorFilter.mode(
-              Colors.grey.shade600,
-              BlendMode.srcIn,
+        items: [
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              width: 26,
+              colorFilter: ColorFilter.mode(
+                Colors.grey.shade600,
+                BlendMode.srcIn,
+              ),
             ),
-          ),
-          activeIcon: SvgPicture.asset(
-            "assets/icons/home.svg",
-            width: 28,
-            colorFilter: const ColorFilter.mode(
-              Colors.deepPurple,
-              BlendMode.srcIn,
+            activeIcon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              width: 28,
+              colorFilter: const ColorFilter.mode(
+                Colors.deepPurple,
+                BlendMode.srcIn,
+              ),
             ),
+            label: "Home",
           ),
-          label: "Home",
-        ),
 
-        BottomNavigationBarItem(
-          icon: SvgPicture.asset(
-            "assets/icons/leads.svg",
-            width: 26,
-            colorFilter: ColorFilter.mode(
-              Colors.grey.shade600,
-              BlendMode.srcIn,
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/leads.svg",
+              width: 26,
+              colorFilter: ColorFilter.mode(
+                Colors.grey.shade600,
+                BlendMode.srcIn,
+              ),
             ),
-          ),
-          activeIcon: SvgPicture.asset(
-            "assets/icons/leads.svg",
-            width: 28,
-            colorFilter: const ColorFilter.mode(
-              Colors.deepPurple,
-              BlendMode.srcIn,
+            activeIcon: SvgPicture.asset(
+              "assets/icons/leads.svg",
+              width: 28,
+              colorFilter: const ColorFilter.mode(
+                Colors.deepPurple,
+                BlendMode.srcIn,
+              ),
             ),
+            label: "Restaurants",
           ),
-          label: "Restaurants",
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

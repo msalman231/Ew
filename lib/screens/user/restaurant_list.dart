@@ -56,6 +56,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
       allRestaurants = list;
       filteredList = list;
     });
+    applyFilters();
   }
 
   // ----------------------------------------------------------------------
@@ -186,7 +187,7 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
 
     return Container(
       margin: const EdgeInsets.only(left: 16),
-      padding: EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -509,13 +510,48 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
 
             SizedBox(height: 16),
 
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              itemCount: filteredList.length,
-              itemBuilder: (context, i) => _restaurantCard(filteredList[i]),
-            ),
+            filteredList.isEmpty
+                ? Container(
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            "No Data Found",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            "No restaurants match your filter criteria",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: filteredList.length,
+                    itemBuilder: (context, i) =>
+                        _restaurantCard(filteredList[i]),
+                  ),
           ],
         ),
       ),
@@ -526,52 +562,64 @@ class _RestaurantListPageState extends State<RestaurantListPage> {
   // BOTTOM NAVIGATION BAR
   // ----------------------------------------------------------------------
   Widget _bottomNavBar() {
-    return BottomNavigationBar(
-      currentIndex: 1,
-      selectedItemColor: Colors.teal,
-      unselectedItemColor: Colors.grey.shade600,
-      showUnselectedLabels: true,
-      backgroundColor: Color(0xFFFFFFFF),
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -2), // Negative offset for top shadow
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: 1,
+        selectedItemColor: Colors.teal,
+        unselectedItemColor: Colors.grey.shade600,
+        showUnselectedLabels: true,
+        backgroundColor: Color(0xFFFFFFFF),
 
-      onTap: (index) {
-        if (index == 0) Navigator.pop(context);
-      },
+        onTap: (index) {
+          if (index == 0) Navigator.pop(context);
+        },
 
-      items: [
-        BottomNavigationBarItem(
-          icon: SvgPicture.asset(
-            "assets/icons/home.svg",
-            width: 26,
-            colorFilter: ColorFilter.mode(
-              Colors.grey.shade600,
-              BlendMode.srcIn,
+        items: [
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              width: 26,
+              colorFilter: ColorFilter.mode(
+                Colors.grey.shade600,
+                BlendMode.srcIn,
+              ),
             ),
-          ),
-          activeIcon: SvgPicture.asset(
-            "assets/icons/home.svg",
-            width: 28,
-            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
-          ),
-          label: "Home",
-        ),
-
-        BottomNavigationBarItem(
-          icon: SvgPicture.asset(
-            "assets/icons/leads.svg",
-            width: 26,
-            colorFilter: ColorFilter.mode(
-              Colors.grey.shade600,
-              BlendMode.srcIn,
+            activeIcon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              width: 28,
+              colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
             ),
+            label: "Home",
           ),
-          activeIcon: SvgPicture.asset(
-            "assets/icons/leads.svg",
-            width: 28,
-            colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
+
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/leads.svg",
+              width: 26,
+              colorFilter: ColorFilter.mode(
+                Colors.grey.shade600,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              "assets/icons/leads.svg",
+              width: 28,
+              colorFilter: const ColorFilter.mode(Colors.teal, BlendMode.srcIn),
+            ),
+            label: "My Leads",
           ),
-          label: "My Leads",
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
